@@ -1,9 +1,11 @@
-package com.memoria.felipe.indoorlocation;
+package com.memoria.felipe.indoorlocation.Utils;
 
 import android.content.Context;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentPagerAdapter;
+
+import com.memoria.felipe.indoorlocation.Fragments.OfflineFragment;
 
 /**
  * Created by felip on 03-07-2017.
@@ -32,6 +34,7 @@ public class FragmentAdapterIndoor extends FragmentPagerAdapter {
     @Override
     public CharSequence getPageTitle(int position) {
         // Generate title based on item position
-        return tabTitles[position];
+        //return tabTitles[position];
+        return null;
     }
 }

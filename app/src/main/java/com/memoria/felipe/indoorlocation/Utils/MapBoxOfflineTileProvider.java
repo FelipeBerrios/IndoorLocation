@@ -1,4 +1,4 @@
-package com.memoria.felipe.indoorlocation;
+package com.memoria.felipe.indoorlocation.Utils;
 
 import java.io.Closeable;
 import java.io.File;

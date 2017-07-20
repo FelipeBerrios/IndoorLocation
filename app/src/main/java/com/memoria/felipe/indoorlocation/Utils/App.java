@@ -1,24 +1,34 @@
 package com.memoria.felipe.indoorlocation.Utils;
 
+import android.app.Application;
+
+import com.facebook.stetho.Stetho;
+import com.memoria.felipe.indoorlocation.Utils.Model.DaoMaster;
+import com.memoria.felipe.indoorlocation.Utils.Model.DaoSession;
+
+import org.greenrobot.greendao.database.Database;
+
 /**
- * Created by felip on 04-07-2017.
+ * Created by felip on 18-07-2017.
  */
 
-
-import android.app.Application;
-import com.kontakt.sdk.android.common.KontaktSDK;
-
 public class App extends Application {
+    /** A flag to show how easily you can switch from standard SQLite to the encrypted SQLCipher. */
+    public static final boolean ENCRYPTED = true;
 
+    private DaoSession daoSession;
 
     @Override
     public void onCreate() {
         super.onCreate();
-        initializeDependencies();
+        Stetho.initializeWithDefaults(this);
+
+        DaoMaster.DevOpenHelper helper = new DaoMaster.DevOpenHelper(this, "notes-db");
+        Database db = helper.getWritableDb();
+        daoSession = new DaoMaster(db).newSession();
     }
 
-    //Initializing Kontakt SDK. Insert your API key to allow all samples to work correctly
-    private void initializeDependencies() {
-        KontaktSDK.initialize(this);
+    public DaoSession getDaoSession() {
+        return daoSession;
     }
 }

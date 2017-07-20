@@ -3,6 +3,8 @@ package com.memoria.felipe.indoorlocation.Screens;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Debug;
+import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.design.widget.TabLayout;
 import android.support.v4.app.ActivityCompat;
@@ -26,6 +28,8 @@ import com.google.android.gms.maps.model.TileOverlayOptions;
 import com.kontakt.sdk.android.ble.configuration.ScanMode;
 import com.kontakt.sdk.android.ble.configuration.ScanPeriod;
 import com.kontakt.sdk.android.ble.connection.OnServiceReadyListener;
+import com.kontakt.sdk.android.ble.device.BeaconDevice;
+import com.kontakt.sdk.android.ble.device.EddystoneDevice;
 import com.kontakt.sdk.android.ble.filter.eddystone.EddystoneFilter;
 import com.kontakt.sdk.android.ble.manager.ProximityManager;
 import com.kontakt.sdk.android.ble.manager.ProximityManagerFactory;
@@ -34,9 +38,13 @@ import com.kontakt.sdk.android.ble.manager.listeners.SecureProfileListener;
 import com.kontakt.sdk.android.ble.manager.listeners.simple.SimpleEddystoneListener;
 import com.kontakt.sdk.android.ble.manager.listeners.simple.SimpleSecureProfileListener;
 import com.kontakt.sdk.android.common.KontaktSDK;
+import com.kontakt.sdk.android.common.Proximity;
 import com.kontakt.sdk.android.common.profile.IEddystoneDevice;
 import com.kontakt.sdk.android.common.profile.IEddystoneNamespace;
 import com.kontakt.sdk.android.common.profile.ISecureProfile;
+import com.memoria.felipe.indoorlocation.Fragments.OnlineFragment;
+import com.memoria.felipe.indoorlocation.Fragments.SettingsFragment;
+import com.memoria.felipe.indoorlocation.Utils.CustomBeacon;
 import com.memoria.felipe.indoorlocation.Utils.FragmentAdapterIndoor;
 import com.memoria.felipe.indoorlocation.Utils.MapBoxOfflineTileProvider;
 import com.memoria.felipe.indoorlocation.Fragments.OfflineFragment;
@@ -50,8 +58,13 @@ import java.util.concurrent.TimeUnit;
 
 import biz.laenger.android.vpbs.BottomSheetUtils;
 import biz.laenger.android.vpbs.ViewPagerBottomSheetBehavior;
+import java8.util.stream.Collectors;
+import java8.util.stream.Stream;
+import java8.util.stream.StreamSupport;
 
-public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, OfflineFragment.OnFragmentInteractionListener {
+public class MainActivity extends AppCompatActivity implements
+        OnMapReadyCallback, OfflineFragment.OnFragmentOfflineListener,
+        OnlineFragment.OnFragmentInteractionListener, SettingsFragment.OnFragmentInteractionListener{
 
     private LinearLayout mLinearBotomSheet;
     private ViewPagerBottomSheetBehavior mBottomBehavior;
@@ -71,6 +84,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             new LatLng(-1, -1), new LatLng(37, 145.75));
     private final static  String MAP_OVERLAY_FILENAME = "parking_origin_0-145_HD.mbtiles";
 
+    private CustomBeacon mCloseBeacon;
+    private CustomBeacon mCloseBeacon2;
+
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -80,6 +98,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         checkPermissions();
         initProximityManager();
         setupBottomSheet();
+
+        mCloseBeacon = new CustomBeacon();
+        mCloseBeacon2 = new CustomBeacon();
 
         /*Toolbar myToolbar = (Toolbar) findViewById(R.id.my_toolbar);
         setSupportActionBar(myToolbar);*/
@@ -93,7 +114,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     protected void onStart() {
         super.onStart();
-        startScanning();
+        //startScanning();
     }
 
     public void initProximityManager(){
@@ -105,33 +126,85 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 //Using BALANCED for best performance/battery ratio
                 .scanMode(ScanMode.BALANCED)
                 //OnDeviceUpdate callback will be received with 5 seconds interval
-                .deviceUpdateCallbackInterval(TimeUnit.SECONDS.toMillis(15));
+                .deviceUpdateCallbackInterval(TimeUnit.SECONDS.toMillis(5));
 
         proximityManager.filters().eddystoneFilter(createFilterBeaconPro());
-        proximityManager.setEddystoneListener(createEddystoneListener());
-        proximityManager.setSecureProfileListener(createSecureProfileListener());
+        proximityManager.setEddystoneListener(createEddystoneListener(1));
+        proximityManager.setSecureProfileListener(createSecureProfileListener(1));
     }
 
-    private EddystoneListener createEddystoneListener() {
+    /**
+     *
+     * @param mode is scanning for insert beacon, 0 or 1 scanning data
+     * @return
+     */
+    private EddystoneListener createEddystoneListener(int mode) {
         return new SimpleEddystoneListener() {
             @Override
             public void onEddystonesUpdated(List<IEddystoneDevice> eddystones, IEddystoneNamespace namespace) {
-                Log.i(TAG, "onEddystonesUpdated: " + eddystones.size());
-                for(int i= 0; i<eddystones.size(); i++){
-                    Log.i(TAG, "onEddystoneUpdate: " + eddystones.get(i).toString());
+                if(mode == 1){
+                    Log.i(TAG, "onEddystonesUpdated: " + eddystones.size());
+                    for(int i= 0; i<eddystones.size(); i++){
+                        Log.i(TAG, "onEddystoneUpdate: " + eddystones.get(i).toString());
+                    }
                 }
+                else{
+                    Log.i(TAG, "onEddystonesUpdated: " + eddystones.size());
+                    for(int i= 0; i<eddystones.size(); i++){
+                        Log.i(TAG, "onEddystoneUpdate: " + eddystones.get(i).toString());
+                    }
+
+                    IEddystoneDevice inmediatly =  StreamSupport.stream(eddystones)
+                            .max((x1,x2)->Integer.compare(x1.getRssi(),x2.getRssi()))
+                            .get();
+
+                    if(inmediatly.getRssi()>mCloseBeacon.getRssi()){
+                        mCloseBeacon.setInstanceId(inmediatly.getInstanceId());
+                        mCloseBeacon.setMAC(inmediatly.getAddress());
+                        mCloseBeacon.setName(inmediatly.getName());
+                        mCloseBeacon.setNameSpace(inmediatly.getNamespace());
+                        mCloseBeacon.setRssi(inmediatly.getRssi());
+                        mCloseBeacon.setTxPower(inmediatly.getTxPower());
+                        mCloseBeacon.setUniqueId(inmediatly.getUniqueId());
+                    }
+
+                }
+
             }
         };
     }
 
-    private SecureProfileListener createSecureProfileListener() {
+    private SecureProfileListener createSecureProfileListener(int mode) {
         return new SimpleSecureProfileListener() {
             @Override
             public void onProfilesUpdated(List<ISecureProfile> profiles) {
-                Log.i(TAG, "onProfileUpdated: " + profiles.size());
-                for(int i= 0; i<profiles.size(); i++){
-                    Log.i(TAG, "onProfilesUpdate: " + profiles.get(i).toString());
+                if(mode==1){
+                    Log.i(TAG, "onProfileUpdated: " + profiles.size());
+                    for(int i= 0; i<profiles.size(); i++){
+                        Log.i(TAG, "onProfilesUpdate: " + profiles.get(i).toString());
+                    }
                 }
+                else{
+                    Log.i(TAG, "onProfileUpdated: " + profiles.size());
+                    for(int i= 0; i<profiles.size(); i++){
+                        Log.i(TAG, "onProfilesUpdate: " + profiles.get(i).toString());
+                    }
+
+                    ISecureProfile inmediatly =  StreamSupport.stream(profiles)
+                            .max((x1,x2)->Integer.compare(x1.getRssi(),x2.getRssi()))
+                            .get();
+
+                    if(inmediatly.getRssi()>mCloseBeacon2.getRssi()){
+                        mCloseBeacon2.setInstanceId(inmediatly.getInstanceId());
+                        mCloseBeacon2.setMAC(inmediatly.getMacAddress());
+                        mCloseBeacon2.setName(inmediatly.getName());
+                        mCloseBeacon2.setNameSpace(inmediatly.getNamespace());
+                        mCloseBeacon2.setRssi(inmediatly.getRssi());
+                        mCloseBeacon2.setTxPower(inmediatly.getTxPower());
+                        mCloseBeacon2.setUniqueId(inmediatly.getUniqueId());
+                    }
+                }
+
             }
         };
     }
@@ -265,7 +338,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     }
 
-    private void startScanning() {
+    private void startScanning(int mode) {
         //Connect to scanning service and start scanning when ready
         proximityManager.connect(new OnServiceReadyListener() {
             @Override
@@ -275,8 +348,13 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     Toast.makeText(MainActivity.this, "Ya esta escaneando", Toast.LENGTH_SHORT).show();
                     return;
                 }
+                proximityManager.setEddystoneListener(createEddystoneListener(mode));
+                proximityManager.setSecureProfileListener(createSecureProfileListener(mode));
                 proximityManager.startScanning();
                 Toast.makeText(MainActivity.this, "Escaneando...", Toast.LENGTH_SHORT).show();
+                if(mode==0){
+                    onServiceReadyBeacon();
+                }
             }
         });
     }
@@ -300,5 +378,32 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         proximityManager.disconnect();
         proximityManager = null;
         super.onDestroy();
+    }
+
+    @Override
+    public void onRequestCloseBeacon() {
+        startScanning(0);
+    }
+
+    public void onServiceReadyBeacon(){
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                Log.e("Termine", "Termine");
+                stopScanning();
+                proximityManager.setEddystoneListener(createEddystoneListener(1));
+                proximityManager.setSecureProfileListener(createSecureProfileListener(1));
+                OfflineFragment offFragment =  (OfflineFragment)mViewPagerBottom.getAdapter().instantiateItem(mViewPagerBottom,0);
+                if(mCloseBeacon.getRssi()>mCloseBeacon2.getRssi()){
+                    offFragment.captureNewBeacon(mCloseBeacon);
+                }
+                else{
+                    offFragment.captureNewBeacon(mCloseBeacon2);
+                }
+
+                mCloseBeacon.clearFields();
+                mCloseBeacon2.clearFields();
+            }
+        }, 30000);
     }
 }

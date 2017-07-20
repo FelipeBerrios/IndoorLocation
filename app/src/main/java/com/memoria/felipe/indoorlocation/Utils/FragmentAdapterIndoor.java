@@ -6,6 +6,8 @@ import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentPagerAdapter;
 
 import com.memoria.felipe.indoorlocation.Fragments.OfflineFragment;
+import com.memoria.felipe.indoorlocation.Fragments.OnlineFragment;
+import com.memoria.felipe.indoorlocation.Fragments.SettingsFragment;
 
 /**
  * Created by felip on 03-07-2017.
@@ -28,7 +30,17 @@ public class FragmentAdapterIndoor extends FragmentPagerAdapter {
 
     @Override
     public Fragment getItem(int position) {
-        return OfflineFragment.newInstance(String.valueOf(position+1), null);
+        switch(position){
+            case 0:
+                return OfflineFragment.newInstance(String.valueOf(position+1), null);
+            case 1:
+                return OnlineFragment.newInstance(String.valueOf(position+1), null);
+            case 2:
+                return SettingsFragment.newInstance(String.valueOf(position+1), null);
+
+            default:
+                return OfflineFragment.newInstance(String.valueOf(position+1), null);
+        }
     }
 
     @Override

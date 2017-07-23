@@ -217,7 +217,7 @@ public class OfflineFragment extends Fragment {
             public void onClick(View v) {
 
                 String xText = mEditXBeacon.getText().toString();
-                String yText = mEditXBeacon.getText().toString();
+                String yText = mEditYBeacon.getText().toString();
 
                 if(xText.equals("") || yText.equals("")){
                     Toast.makeText(getActivity().getApplicationContext(),
@@ -295,6 +295,7 @@ public class OfflineFragment extends Fragment {
                         "Insercion realizada con exito",
                         Toast.LENGTH_SHORT).show();
                 mRelativeInsertBeacon.setVisibility(View.GONE);
+                mListener.onInsertBeacon(newBeacon);
 
             }
             catch (Exception ex){
@@ -349,5 +350,6 @@ public class OfflineFragment extends Fragment {
     public interface OnFragmentOfflineListener {
         // TODO: Update argument type and name
         void onRequestCloseBeacon();
+        void onInsertBeacon(Beacons beacon);
     }
 }

@@ -1,5 +1,6 @@
 apply plugin: 'com.android.application'
 apply plugin: 'org.greenrobot.greendao'
+apply plugin: 'me.tatarka.retrolambda'
 
 android {
     compileSdkVersion 25
@@ -18,10 +19,19 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+repositories {
+    mavenCentral()
 }
 
 greendao {
-    schemaVersion 2
+    schemaVersion 3
 }
 
 dependencies {
@@ -37,5 +47,12 @@ dependencies {
     compile 'com.android.support:support-v4:25.3.1'
     compile 'com.kontaktio:sdk:3.3.1'
     compile 'org.greenrobot:greendao:3.2.2'
+    compile 'com.facebook.stetho:stetho:1.5.0'
+    compile 'com.facebook.stetho:stetho-okhttp3:1.5.0'
+    compile 'net.sourceforge.streamsupport:streamsupport:1.5.5'
+    compile 'net.sourceforge.streamsupport:streamsupport-cfuture:1.5.5'
+    compile 'net.sourceforge.streamsupport:streamsupport-atomic:1.5.5'
+    compile 'net.sourceforge.streamsupport:streamsupport-flow:1.5.5'
+    compile 'net.sourceforge.streamsupport:streamsupport-literal:1.5.5'
     testCompile 'junit:junit:4.12'
 }

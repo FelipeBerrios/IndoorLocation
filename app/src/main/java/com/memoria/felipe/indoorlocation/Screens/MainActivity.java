@@ -2,6 +2,9 @@ package com.memoria.felipe.indoorlocation.Screens;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
 import android.os.Debug;
 import android.os.Handler;
@@ -20,8 +23,10 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.TileOverlay;
 import com.google.android.gms.maps.model.TileOverlayOptions;
@@ -39,21 +44,28 @@ import com.kontakt.sdk.android.ble.manager.listeners.simple.SimpleEddystoneListe
 import com.kontakt.sdk.android.ble.manager.listeners.simple.SimpleSecureProfileListener;
 import com.kontakt.sdk.android.common.KontaktSDK;
 import com.kontakt.sdk.android.common.Proximity;
+import com.kontakt.sdk.android.common.model.Namespace;
 import com.kontakt.sdk.android.common.profile.IEddystoneDevice;
 import com.kontakt.sdk.android.common.profile.IEddystoneNamespace;
 import com.kontakt.sdk.android.common.profile.ISecureProfile;
 import com.memoria.felipe.indoorlocation.Fragments.OnlineFragment;
 import com.memoria.felipe.indoorlocation.Fragments.SettingsFragment;
+import com.memoria.felipe.indoorlocation.Utils.App;
 import com.memoria.felipe.indoorlocation.Utils.CustomBeacon;
 import com.memoria.felipe.indoorlocation.Utils.FragmentAdapterIndoor;
 import com.memoria.felipe.indoorlocation.Utils.MapBoxOfflineTileProvider;
 import com.memoria.felipe.indoorlocation.Fragments.OfflineFragment;
 import com.memoria.felipe.indoorlocation.R;
+import com.memoria.felipe.indoorlocation.Utils.Model.Beacons;
+import com.memoria.felipe.indoorlocation.Utils.Model.BeaconsDao;
+import com.memoria.felipe.indoorlocation.Utils.Model.DaoSession;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import biz.laenger.android.vpbs.BottomSheetUtils;
@@ -85,8 +97,9 @@ public class MainActivity extends AppCompatActivity implements
     private final static  String MAP_OVERLAY_FILENAME = "parking_origin_0-145_HD.mbtiles";
 
     private CustomBeacon mCloseBeacon;
-    private CustomBeacon mCloseBeacon2;
-
+    private Map<String, CustomBeacon> map = new HashMap<String, CustomBeacon>();
+    private DaoSession daoSession;
+    private BeaconsDao beaconsDao;
 
 
     @Override
@@ -96,11 +109,16 @@ public class MainActivity extends AppCompatActivity implements
         // Init kontakt sdk
         KontaktSDK.initialize(this);
         checkPermissions();
+
+        daoSession = ((App) getApplication()).getDaoSession();
+        beaconsDao = daoSession.getBeaconsDao();
         initProximityManager();
         setupBottomSheet();
 
+        createBeaconProMap("6273745a4532", "f7826da6bc5b71e0893f", "CF:72:17:A9:0E:79","",-77,"C1hA");
+        createBeaconProMap("6b786a437062", "f7826da6bc5b71e0893f", "D9:D6:91:B5:F8:8B","",-77,"F39L");
+
         mCloseBeacon = new CustomBeacon();
-        mCloseBeacon2 = new CustomBeacon();
 
         /*Toolbar myToolbar = (Toolbar) findViewById(R.id.my_toolbar);
         setSupportActionBar(myToolbar);*/
@@ -126,11 +144,47 @@ public class MainActivity extends AppCompatActivity implements
                 //Using BALANCED for best performance/battery ratio
                 .scanMode(ScanMode.BALANCED)
                 //OnDeviceUpdate callback will be received with 5 seconds interval
-                .deviceUpdateCallbackInterval(TimeUnit.SECONDS.toMillis(5));
+                .deviceUpdateCallbackInterval(350);
 
-        proximityManager.filters().eddystoneFilter(createFilterBeaconPro());
+        //proximityManager.filters().eddystoneFilter(createFilterBeaconPro());
         proximityManager.setEddystoneListener(createEddystoneListener(1));
-        proximityManager.setSecureProfileListener(createSecureProfileListener(1));
+    }
+
+    public Bitmap resizeMapIcons(String iconName,int width, int height){
+        Bitmap imageBitmap = BitmapFactory.decodeResource(getResources(),getResources().getIdentifier(iconName, "drawable", getPackageName()));
+        Bitmap resizedBitmap = Bitmap.createScaledBitmap(imageBitmap, width, height, false);
+        return resizedBitmap;
+    }
+
+    public void loadBeaconsMarkers(GoogleMap googleMap){
+        List<Beacons> beacons = beaconsDao.loadAll();
+        for( int i =0; i< beacons.size(); i++){
+            Beacons actualBeacon = beacons.get(i);
+            LatLng position = new LatLng(actualBeacon.getYPosition(), actualBeacon.getXPosition());
+            Marker mk = googleMap.addMarker(new MarkerOptions()
+                    .position(position)
+                    .draggable(true)
+                    .title(actualBeacon.getUniqueId())
+                    .snippet("x: " + actualBeacon.getXPosition() + ", y: " + actualBeacon.getYPosition())
+                    .anchor(0.5f,0.5f)
+                    .icon(BitmapDescriptorFactory.fromBitmap(resizeMapIcons("smart_beacon",186,107))));
+
+            mk.setTag(actualBeacon);
+
+        }
+    }
+
+    public void deleteMarker(Marker marker){
+        try{
+            Beacons bc =(Beacons) marker.getTag();
+            daoSession.delete(bc);
+            Toast.makeText(getApplicationContext(), "Beacon borrado con exito", Toast.LENGTH_SHORT).show();
+            marker.remove();
+        }
+        catch (Exception ex){
+            Toast.makeText(getApplicationContext(), "Error al intentar eliminar", Toast.LENGTH_SHORT).show();
+            ex.printStackTrace();
+        }
     }
 
     /**
@@ -159,62 +213,30 @@ public class MainActivity extends AppCompatActivity implements
                             .get();
 
                     if(inmediatly.getRssi()>mCloseBeacon.getRssi()){
-                        mCloseBeacon.setInstanceId(inmediatly.getInstanceId());
-                        mCloseBeacon.setMAC(inmediatly.getAddress());
-                        mCloseBeacon.setName(inmediatly.getName());
-                        mCloseBeacon.setNameSpace(inmediatly.getNamespace());
-                        mCloseBeacon.setRssi(inmediatly.getRssi());
-                        mCloseBeacon.setTxPower(inmediatly.getTxPower());
-                        mCloseBeacon.setUniqueId(inmediatly.getUniqueId());
+                        if(inmediatly.getUniqueId() != null){
+                            mCloseBeacon.setInstanceId(inmediatly.getInstanceId());
+                            mCloseBeacon.setMAC(inmediatly.getAddress());
+                            mCloseBeacon.setName(inmediatly.getName());
+                            mCloseBeacon.setNameSpace(inmediatly.getNamespace());
+                            mCloseBeacon.setRssi(inmediatly.getRssi());
+                            mCloseBeacon.setTxPower(inmediatly.getTxPower());
+                            mCloseBeacon.setUniqueId(inmediatly.getUniqueId());
+                        }
+                        else{
+                            CustomBeacon mBeaconPro = map.get(inmediatly.getInstanceId());
+                            mCloseBeacon.setInstanceId(mBeaconPro.getInstanceId());
+                            mCloseBeacon.setMAC(mBeaconPro.getMAC());
+                            mCloseBeacon.setName(mBeaconPro.getName());
+                            mCloseBeacon.setNameSpace(mBeaconPro.getNameSpace());
+                            mCloseBeacon.setRssi(inmediatly.getRssi());
+                            mCloseBeacon.setTxPower(mBeaconPro.getTxPower());
+                            mCloseBeacon.setUniqueId(mBeaconPro.getUniqueId());
+                        }
+
                     }
 
                 }
 
-            }
-        };
-    }
-
-    private SecureProfileListener createSecureProfileListener(int mode) {
-        return new SimpleSecureProfileListener() {
-            @Override
-            public void onProfilesUpdated(List<ISecureProfile> profiles) {
-                if(mode==1){
-                    Log.i(TAG, "onProfileUpdated: " + profiles.size());
-                    for(int i= 0; i<profiles.size(); i++){
-                        Log.i(TAG, "onProfilesUpdate: " + profiles.get(i).toString());
-                    }
-                }
-                else{
-                    Log.i(TAG, "onProfileUpdated: " + profiles.size());
-                    for(int i= 0; i<profiles.size(); i++){
-                        Log.i(TAG, "onProfilesUpdate: " + profiles.get(i).toString());
-                    }
-
-                    ISecureProfile inmediatly =  StreamSupport.stream(profiles)
-                            .max((x1,x2)->Integer.compare(x1.getRssi(),x2.getRssi()))
-                            .get();
-
-                    if(inmediatly.getRssi()>mCloseBeacon2.getRssi()){
-                        mCloseBeacon2.setInstanceId(inmediatly.getInstanceId());
-                        mCloseBeacon2.setMAC(inmediatly.getMacAddress());
-                        mCloseBeacon2.setName(inmediatly.getName());
-                        mCloseBeacon2.setNameSpace(inmediatly.getNamespace());
-                        mCloseBeacon2.setRssi(inmediatly.getRssi());
-                        mCloseBeacon2.setTxPower(inmediatly.getTxPower());
-                        mCloseBeacon2.setUniqueId(inmediatly.getUniqueId());
-                    }
-                }
-
-            }
-        };
-    }
-
-    public EddystoneFilter createFilterBeaconPro(){
-        return new EddystoneFilter() {
-            @Override
-            public boolean apply(IEddystoneDevice device) {
-                //Do your logic here. For example:
-                return device.getUniqueId()!=null;
             }
         };
     }
@@ -262,6 +284,21 @@ public class MainActivity extends AppCompatActivity implements
         BottomSheetUtils.setupViewPager(mViewPagerBottom);
     }
 
+    private void createBeaconProMap(String instanceId, String nameSpace,
+                                    String MAC, String Name, int TxPower, String UniqueId){
+
+        CustomBeacon nBeacon = new CustomBeacon();
+        nBeacon.setInstanceId(instanceId);
+        nBeacon.setName(Name);
+        nBeacon.setUniqueId(UniqueId);
+        nBeacon.setTxPower(TxPower);
+        nBeacon.setMAC(MAC);
+        nBeacon.setNameSpace(nameSpace);
+
+        map.put(instanceId, nBeacon);
+
+    }
+
     /**
      * Manipulates the map once available.
      * This callback is triggered when the map is ready to be used.
@@ -291,13 +328,30 @@ public class MainActivity extends AppCompatActivity implements
         // Add the tile overlay to the map.
         TileOverlay overlay = mMap.addTileOverlay(opts);
 
+        mMap.setOnMarkerDragListener(new GoogleMap.OnMarkerDragListener() {
+            @Override
+            public void onMarkerDragStart(Marker marker) {
+                deleteMarker(marker);
+            }
+
+            @Override
+            public void onMarkerDrag(Marker marker) {
+
+            }
+
+            @Override
+            public void onMarkerDragEnd(Marker marker) {
+
+            }
+        });
+
         // Sometime later when the map view is destroyed, close the provider.
         // This is important to prevent a leak of the backing SQLiteDatabase.
         //provider.close();
         //mMap.setMapType(GoogleMap.MAP_TYPE_SATELLITE);
         // Add a marker in Sydney and move the camera
         LatLng sydney = new LatLng(0, 0);
-        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
+        loadBeaconsMarkers(mMap);
         mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
     }
 
@@ -349,7 +403,6 @@ public class MainActivity extends AppCompatActivity implements
                     return;
                 }
                 proximityManager.setEddystoneListener(createEddystoneListener(mode));
-                proximityManager.setSecureProfileListener(createSecureProfileListener(mode));
                 proximityManager.startScanning();
                 Toast.makeText(MainActivity.this, "Escaneando...", Toast.LENGTH_SHORT).show();
                 if(mode==0){
@@ -385,6 +438,25 @@ public class MainActivity extends AppCompatActivity implements
         startScanning(0);
     }
 
+    @Override
+    public void onInsertBeacon(Beacons beacon) {
+        if(mMap!=null){
+            LatLng position = new LatLng(beacon.getYPosition(), beacon.getXPosition());
+            Marker mk = mMap.addMarker(new MarkerOptions()
+                    .position(position)
+                    .draggable(true)
+                    .title(beacon.getUniqueId())
+                    .snippet("x: " + beacon.getXPosition() + ", y: " + beacon.getYPosition())
+                    .anchor(0.5f,0.5f)
+                    .icon(BitmapDescriptorFactory.fromBitmap(resizeMapIcons("smart_beacon",186,107))));
+
+            mk.setTag(beacon);
+            mBottomBehavior.setState(ViewPagerBottomSheetBehavior.STATE_COLLAPSED);
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(position));
+
+        }
+    }
+
     public void onServiceReadyBeacon(){
         new Handler().postDelayed(new Runnable() {
             @Override
@@ -392,18 +464,11 @@ public class MainActivity extends AppCompatActivity implements
                 Log.e("Termine", "Termine");
                 stopScanning();
                 proximityManager.setEddystoneListener(createEddystoneListener(1));
-                proximityManager.setSecureProfileListener(createSecureProfileListener(1));
                 OfflineFragment offFragment =  (OfflineFragment)mViewPagerBottom.getAdapter().instantiateItem(mViewPagerBottom,0);
-                if(mCloseBeacon.getRssi()>mCloseBeacon2.getRssi()){
-                    offFragment.captureNewBeacon(mCloseBeacon);
-                }
-                else{
-                    offFragment.captureNewBeacon(mCloseBeacon2);
-                }
+                offFragment.captureNewBeacon(mCloseBeacon);
 
                 mCloseBeacon.clearFields();
-                mCloseBeacon2.clearFields();
             }
-        }, 30000);
+        }, 10000);
     }
 }

@@ -23,7 +23,7 @@ public class App extends Application {
         super.onCreate();
         Stetho.initializeWithDefaults(this);
 
-        DaoMaster.DevOpenHelper helper = new DaoMaster.DevOpenHelper(this, "notes-db");
+        DaoMaster.DevOpenHelper helper = new DaoMaster.DevOpenHelper(this, "indoor-db");
         Database db = helper.getWritableDb();
         daoSession = new DaoMaster(db).newSession();
     }

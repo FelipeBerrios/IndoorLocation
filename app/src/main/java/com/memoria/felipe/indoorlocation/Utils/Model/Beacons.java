@@ -102,7 +102,7 @@ public class Beacons {
     public void setYPosition(Double YPosition) {
         this.YPosition = YPosition;
     }
-    
+
 
 
     

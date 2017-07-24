@@ -30,7 +30,8 @@
                 android:id="@+id/radiogroup_coord"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:layout_marginEnd="24dp">
                 <RadioButton android:id="@+id/radio_coordenadas"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -41,6 +42,14 @@
                     android:layout_height="wrap_content"
                     android:text="Patron"/>
             </RadioGroup>
+
+            <Button
+                android:id="@+id/make_scan_button"
+                android:text = "Iniciar"
+                android:textColor="#fff"
+                android:background="#4CAF50"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent" />
 
         </LinearLayout>
 
@@ -58,7 +67,7 @@
                 android:orientation="horizontal">
 
                 <android.support.design.widget.TextInputLayout
-                    android:layout_width="88dp"
+                    android:layout_width="72dp"
                     android:layout_height="wrap_content">
 
                     <EditText
@@ -71,7 +80,7 @@
                 </android.support.design.widget.TextInputLayout>
 
                 <android.support.design.widget.TextInputLayout
-                    android:layout_width="88dp"
+                    android:layout_width="48dp"
                     android:layout_height="wrap_content">
 
                     <EditText
@@ -84,8 +93,9 @@
                 </android.support.design.widget.TextInputLayout>
 
                 <android.support.design.widget.TextInputLayout
-                    android:layout_width="88dp"
-                    android:layout_height="wrap_content">
+                    android:layout_width="48dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp">
 
                     <EditText
                         android:id="@+id/edit_text_patron_pos_y"
@@ -95,6 +105,13 @@
                         android:inputType="numberDecimal"/>
 
                 </android.support.design.widget.TextInputLayout>
+                
+                <android.support.v7.widget.AppCompatSpinner
+                    android:id="@+id/spinner_orientation"
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    android:background="#3F51B5"/>
 
             </LinearLayout>
 
@@ -126,7 +143,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="32dp"
             android:visibility="gone">
 
             <android.support.design.widget.TextInputLayout
@@ -168,7 +185,7 @@
                 android:layout_height="wrap_content"
                 android:text="Ingresar Beacon"
                 android:textSize="24sp"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="8dp"
                 android:textStyle="bold"/>
 
             <Button
@@ -268,11 +285,6 @@
         </LinearLayout>
 
     </LinearLayout>
-
-
-
-
-
 
 
 </FrameLayout>

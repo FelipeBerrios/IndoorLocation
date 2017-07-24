@@ -1,5 +1,6 @@
 package com.memoria.felipe.indoorlocation.Fragments;
 
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.net.Uri;
 import android.os.Bundle;
@@ -11,12 +12,15 @@ import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.RadioGroup;
 import android.widget.RelativeLayout;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -64,6 +68,11 @@ public class OfflineFragment extends Fragment {
     private EditText mEditXBeacon;
     private EditText mEditYBeacon;
     private Button mButtonIngresar;
+    private Spinner mSpinnerOrientation;
+    private Button mButtonMakeScan;
+
+    private Double mXCoord;
+    private Double mYCoord;
 
     private CustomBeacon mNewBeacon;
     private DaoSession daoSession;
@@ -128,7 +137,15 @@ public class OfflineFragment extends Fragment {
         mEditTextPosX = (EditText)getView().findViewById(R.id.edit_text_patron_pos_x);
         mEditTextPosY = (EditText)getView().findViewById(R.id.edit_text_patron_pos_y);
         mEditTextPatron = (EditText)getView().findViewById(R.id.edit_text_patron);
-
+        mSpinnerOrientation = (Spinner) getView().findViewById(R.id.spinner_orientation);
+        // Create an ArrayAdapter using the string array and a default spinner layout
+        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(getActivity().getApplicationContext(),
+                R.array.orientation_array, android.R.layout.simple_spinner_item);
+        // Specify the layout to use when the list of choices appears
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        // Apply the adapter to the spinner
+        mSpinnerOrientation.setAdapter(adapter);
+        mButtonMakeScan = (Button)getView().findViewById(R.id.make_scan_button);
 
         mButtonInitScanBeacon = (Button)getView().findViewById(R.id.button_init_scan_beacon);
         mProgressScanBeacon = (ProgressBar) getView().findViewById(R.id.progress_scan);
@@ -202,6 +219,27 @@ public class OfflineFragment extends Fragment {
             }
         });
 
+        mButtonMakeScan.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String xString = mEditTextPosX.getText().toString();
+                String yString = mEditTextPosY.getText().toString();
+                String patronString  = mEditTextPatron.getText().toString();
+                Integer orientation = mSpinnerOrientation.getSelectedItemPosition();
+                if(!xString.equals("") && !yString.equals("") &&
+                        orientation!= AdapterView.INVALID_POSITION && !patronString.equals("")){
+                    //Double x = Double.parseDouble(mTextViewCoordX.getText().toString());
+                    //Double y = Double.parseDouble(mTextViewCoordY.getText().toString());
+                    mListener.onGetFingerprint(mXCoord,mYCoord,orientation);
+                }
+                else{
+                    Toast.makeText(getActivity().getApplicationContext(),
+                            "Debes llenar los campos", Toast.LENGTH_SHORT).show();
+                }
+
+            }
+        });
+
         mButtonInitScanBeacon.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -249,14 +287,20 @@ public class OfflineFragment extends Fragment {
             Double patron  = Double.parseDouble(patronText);
 
             if(patron !=0.0 ){
-                mTextViewCoordX.setText("Coord X: " + String.valueOf(patron*x));
-                mTextViewCoordY.setText("Coord Y: " + String.valueOf(patron*y));
+                mXCoord = patron*x - patron/2;
+                mYCoord = patron*y - patron/2;
+                mTextViewCoordX.setText("Coord X: " + String.valueOf(mXCoord));
+                mTextViewCoordY.setText("Coord Y: " + String.valueOf(mYCoord));
             }
             else{
                 Toast.makeText(getActivity().getApplicationContext()
                         ,"Debes Ingresar un Patron distinto de cero", Toast.LENGTH_SHORT).show();
             }
         }
+
+    }
+
+    public void getFingerprint(){
 
     }
 
@@ -351,5 +395,6 @@ public class OfflineFragment extends Fragment {
         // TODO: Update argument type and name
         void onRequestCloseBeacon();
         void onInsertBeacon(Beacons beacon);
+        void onGetFingerprint(Double x, Double y, Integer orientation);
     }
 }

@@ -1,6 +1,7 @@
 package com.memoria.felipe.indoorlocation.Screens;
 
 import android.Manifest;
+import android.app.ProgressDialog;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -48,6 +49,7 @@ import com.kontakt.sdk.android.common.model.Namespace;
 import com.kontakt.sdk.android.common.profile.IEddystoneDevice;
 import com.kontakt.sdk.android.common.profile.IEddystoneNamespace;
 import com.kontakt.sdk.android.common.profile.ISecureProfile;
+import com.kontakt.sdk.android.common.util.Constants;
 import com.memoria.felipe.indoorlocation.Fragments.OnlineFragment;
 import com.memoria.felipe.indoorlocation.Fragments.SettingsFragment;
 import com.memoria.felipe.indoorlocation.Utils.App;
@@ -56,13 +58,17 @@ import com.memoria.felipe.indoorlocation.Utils.FragmentAdapterIndoor;
 import com.memoria.felipe.indoorlocation.Utils.MapBoxOfflineTileProvider;
 import com.memoria.felipe.indoorlocation.Fragments.OfflineFragment;
 import com.memoria.felipe.indoorlocation.R;
+import com.memoria.felipe.indoorlocation.Utils.Model.Beacon_RSSI;
 import com.memoria.felipe.indoorlocation.Utils.Model.Beacons;
 import com.memoria.felipe.indoorlocation.Utils.Model.BeaconsDao;
 import com.memoria.felipe.indoorlocation.Utils.Model.DaoSession;
+import com.memoria.felipe.indoorlocation.Utils.Model.Fingerprint;
+import com.memoria.felipe.indoorlocation.Utils.Model.FingerprintDao;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -101,6 +107,12 @@ public class MainActivity extends AppCompatActivity implements
     private DaoSession daoSession;
     private BeaconsDao beaconsDao;
 
+    private ProgressDialog mProgressDialogScan;
+    private int counter=0;
+    private Double ActualXPosition;
+    private Double ActualYPosition;
+    private Integer ActualOrientation;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -112,6 +124,8 @@ public class MainActivity extends AppCompatActivity implements
 
         daoSession = ((App) getApplication()).getDaoSession();
         beaconsDao = daoSession.getBeaconsDao();
+        mProgressDialogScan = new ProgressDialog(this);
+        mProgressDialogScan.setCancelable(false);
         initProximityManager();
         setupBottomSheet();
 
@@ -201,6 +215,67 @@ public class MainActivity extends AppCompatActivity implements
                     for(int i= 0; i<eddystones.size(); i++){
                         Log.i(TAG, "onEddystoneUpdate: " + eddystones.get(i).toString());
                     }
+
+
+                    try{
+                        counter+=1;
+                        List<String> macsIn = new ArrayList<String>();
+
+                        FingerprintDao fingerprintDao = daoSession.getFingerprintDao();
+                        Fingerprint fingerprint = new Fingerprint();
+                        fingerprint.setXPosition(ActualXPosition);
+                        fingerprint.setYPosition(ActualYPosition);
+                        fingerprint.setOrientation(ActualOrientation);
+                        long idFingerprint = daoSession.insert(fingerprint);
+                        fingerprint = fingerprintDao.load(idFingerprint);
+
+                        for(int i= 0; i<eddystones.size(); i++){
+                            String macBeacon;
+                            IEddystoneDevice actualEddystone = eddystones.get(i);
+                            if(eddystones.get(i).getUniqueId()!=null){
+                                macBeacon = actualEddystone.getAddress();
+                            }
+                            else{
+                                macBeacon = map.get(actualEddystone.getInstanceId()).getMAC();
+                            }
+                            Beacons beacons = beaconsDao.queryBuilder()
+                                    .where(BeaconsDao.Properties.MAC.eq(macBeacon)).unique();
+
+                            if(beacons!=null){
+                                Beacon_RSSI beacon_rssi = new Beacon_RSSI();
+                                beacon_rssi.setRssi(actualEddystone.getRssi());
+                                beacon_rssi.setFingerprintId(fingerprint.getId());
+
+                                macsIn.add(macBeacon);
+                                beacon_rssi.setBeaconId(beacons.getId());
+                                daoSession.insert(beacon_rssi);
+                            }
+
+                        }
+
+                        List<Beacons> notInBeacons = beaconsDao.queryBuilder()
+                                .where(BeaconsDao.Properties.MAC.notIn(macsIn)).list();
+
+                        for(int j = 0; j<notInBeacons.size();j++ ){
+                            Beacon_RSSI beacon_rssi = new Beacon_RSSI();
+                            beacon_rssi.setRssi(100);
+                            beacon_rssi.setFingerprintId(fingerprint.getId());
+                            Beacons beacons = beaconsDao.queryBuilder()
+                                    .where(BeaconsDao.Properties.MAC.eq(notInBeacons.get(j).getMAC())).unique();
+                            beacon_rssi.setBeaconId(beacons.getId());
+                            daoSession.insert(beacon_rssi);
+                        }
+
+                        mProgressDialogScan.incrementProgressBy(1);
+
+                        if(counter==10){
+                            onFingerprintCollected();
+                        }
+                    }
+                    catch (Exception ex){
+                        ex.printStackTrace();
+                    }
+
                 }
                 else{
                     Log.i(TAG, "onEddystonesUpdated: " + eddystones.size());
@@ -296,6 +371,16 @@ public class MainActivity extends AppCompatActivity implements
         nBeacon.setNameSpace(nameSpace);
 
         map.put(instanceId, nBeacon);
+
+    }
+
+    public void onFingerprintCollected(){
+        stopScanning();
+        mProgressDialogScan.dismiss();
+        mProgressDialogScan.setProgress(0);
+        ActualOrientation = null;
+        ActualXPosition = null;
+        ActualYPosition = null;
 
     }
 
@@ -455,6 +540,26 @@ public class MainActivity extends AppCompatActivity implements
             mMap.moveCamera(CameraUpdateFactory.newLatLng(position));
 
         }
+    }
+
+    @Override
+    public void onGetFingerprint(Double x, Double y, Integer orientation) {
+        mProgressDialogScan.setMax(10);
+        mProgressDialogScan.setTitle("Generando fingerprint");
+        mProgressDialogScan.setMessage("Conectando...");
+        mProgressDialogScan.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+        mProgressDialogScan.show();
+        ActualXPosition = x;
+        ActualYPosition = y;
+        ActualOrientation = orientation;
+
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                startScanning(1);
+                mProgressDialogScan.setMessage("Obteniendo mediciones");
+            }
+        }, 5000);
     }
 
     public void onServiceReadyBeacon(){

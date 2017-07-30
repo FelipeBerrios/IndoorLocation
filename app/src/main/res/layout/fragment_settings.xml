@@ -2,12 +2,64 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.memoria.felipe.indoorlocation.Fragments.SettingsFragment">
+    tools:context="com.memoria.felipe.indoorlocation.Fragments.SettingsFragment"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:id="@+id/textview_exportar_db"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Exportar base de datos"
+                android:textSize="20sp"
+                android:layout_marginEnd="16dp"/>
+
+            <Button
+                android:id="@+id/button_export"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Exportar"/>
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/textview_generar_csv"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Generar CSV"
+                android:textSize="20sp"
+                android:layout_marginEnd="16dp"/>
+
+            <Button
+                android:id="@+id/button__generate_csv"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Generar"/>
+
+        </LinearLayout>
+
+
+
+
+
+
+    </LinearLayout>
 
     <!-- TODO: Update blank fragment layout -->
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:text="@string/hello_blank_fragment" />
+
 
 </FrameLayout>

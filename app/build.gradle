@@ -54,5 +54,8 @@ dependencies {
     compile 'net.sourceforge.streamsupport:streamsupport-atomic:1.5.5'
     compile 'net.sourceforge.streamsupport:streamsupport-flow:1.5.5'
     compile 'net.sourceforge.streamsupport:streamsupport-literal:1.5.5'
+    compile('com.opencsv:opencsv:3.10'){
+        exclude group: 'commons-logging', module: 'commons-logging'
+    }
     testCompile 'junit:junit:4.12'
 }

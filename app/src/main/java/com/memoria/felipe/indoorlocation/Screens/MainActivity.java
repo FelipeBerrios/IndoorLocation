@@ -112,6 +112,8 @@ public class MainActivity extends AppCompatActivity implements
     private Double ActualXPosition;
     private Double ActualYPosition;
     private Integer ActualOrientation;
+    private Boolean mcanStartTakeMeditions = false;
+    private static Integer NUMBER_OF_MEDITIONS = 10;
 
 
     @Override
@@ -216,6 +218,9 @@ public class MainActivity extends AppCompatActivity implements
                         Log.i(TAG, "onEddystoneUpdate: " + eddystones.get(i).toString());
                     }
 
+                    if(!mcanStartTakeMeditions){
+                        return;
+                    }
 
                     try{
                         counter+=1;
@@ -268,8 +273,9 @@ public class MainActivity extends AppCompatActivity implements
 
                         mProgressDialogScan.incrementProgressBy(1);
 
-                        if(counter==10){
+                        if(counter==NUMBER_OF_MEDITIONS){
                             onFingerprintCollected();
+                            counter =0;
                         }
                     }
                     catch (Exception ex){
@@ -376,6 +382,7 @@ public class MainActivity extends AppCompatActivity implements
 
     public void onFingerprintCollected(){
         stopScanning();
+        mcanStartTakeMeditions = false;
         mProgressDialogScan.dismiss();
         mProgressDialogScan.setProgress(0);
         ActualOrientation = null;
@@ -544,7 +551,7 @@ public class MainActivity extends AppCompatActivity implements
 
     @Override
     public void onGetFingerprint(Double x, Double y, Integer orientation) {
-        mProgressDialogScan.setMax(10);
+        mProgressDialogScan.setMax(NUMBER_OF_MEDITIONS);
         mProgressDialogScan.setTitle("Generando fingerprint");
         mProgressDialogScan.setMessage("Conectando...");
         mProgressDialogScan.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
@@ -552,12 +559,14 @@ public class MainActivity extends AppCompatActivity implements
         ActualXPosition = x;
         ActualYPosition = y;
         ActualOrientation = orientation;
+        startScanning(1);
 
         new Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
-                startScanning(1);
                 mProgressDialogScan.setMessage("Obteniendo mediciones");
+                mProgressDialogScan.setProgress(0);
+                mcanStartTakeMeditions = true;
             }
         }, 5000);
     }

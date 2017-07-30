@@ -226,15 +226,13 @@ public class OfflineFragment extends Fragment {
                 String yString = mEditTextPosY.getText().toString();
                 String patronString  = mEditTextPatron.getText().toString();
                 Integer orientation = mSpinnerOrientation.getSelectedItemPosition();
-                if(!xString.equals("") && !yString.equals("") &&
-                        orientation!= AdapterView.INVALID_POSITION && !patronString.equals("")){
-                    //Double x = Double.parseDouble(mTextViewCoordX.getText().toString());
-                    //Double y = Double.parseDouble(mTextViewCoordY.getText().toString());
+                if(mXCoord!=null && mYCoord!=null &&
+                        orientation!= AdapterView.INVALID_POSITION ){
                     mListener.onGetFingerprint(mXCoord,mYCoord,orientation);
                 }
                 else{
                     Toast.makeText(getActivity().getApplicationContext(),
-                            "Debes llenar los campos", Toast.LENGTH_SHORT).show();
+                            "Debes llenar los campos corrctamente", Toast.LENGTH_SHORT).show();
                 }
 
             }
@@ -257,16 +255,26 @@ public class OfflineFragment extends Fragment {
                 String xText = mEditXBeacon.getText().toString();
                 String yText = mEditYBeacon.getText().toString();
 
-                if(xText.equals("") || yText.equals("")){
+                try{
+                    if(xText.equals("") || yText.equals("")){
+                        Toast.makeText(getActivity().getApplicationContext(),
+                                "Debes ingresar posiciones validas",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                    else{
+                        Double xBeacon = Double.parseDouble(xText);
+                        Double yBeacon = Double.parseDouble(yText);
+                        processInsertBeacon(xBeacon,yBeacon,mNewBeacon);
+                    }
+                }
+
+                catch(NumberFormatException e){
+                    //En caso de que los inputs no puedan ser transformados a numeros
                     Toast.makeText(getActivity().getApplicationContext(),
                             "Debes ingresar posiciones validas",
                             Toast.LENGTH_SHORT).show();
                 }
-                else{
-                    Double xBeacon = Double.parseDouble(xText);
-                    Double yBeacon = Double.parseDouble(yText);
-                    processInsertBeacon(xBeacon,yBeacon,mNewBeacon);
-                }
+
 
             }
         });
@@ -281,22 +289,36 @@ public class OfflineFragment extends Fragment {
         String yText = mEditTextPosY.getText().toString();
         String patronText = mEditTextPatron.getText().toString();
 
-        if(!xText.equals("") && !yText.equals("") && !patronText.equals("")){
-            Double x  = Double.parseDouble(xText);
-            Double y  = Double.parseDouble(yText);
-            Double patron  = Double.parseDouble(patronText);
+        try{
+            if(!xText.equals("") && !yText.equals("") && !patronText.equals("")){
+                Double x  = Double.parseDouble(xText);
+                Double y  = Double.parseDouble(yText);
+                Double patron  = Double.parseDouble(patronText);
 
-            if(patron !=0.0 ){
-                mXCoord = patron*x - patron/2;
-                mYCoord = patron*y - patron/2;
-                mTextViewCoordX.setText("Coord X: " + String.valueOf(mXCoord));
-                mTextViewCoordY.setText("Coord Y: " + String.valueOf(mYCoord));
-            }
-            else{
-                Toast.makeText(getActivity().getApplicationContext()
-                        ,"Debes Ingresar un Patron distinto de cero", Toast.LENGTH_SHORT).show();
+                if(patron !=0.0 ){
+                    mXCoord = patron*x - patron/2;
+                    mYCoord = patron*y - patron/2;
+                    mTextViewCoordX.setText("Coord X: " + String.valueOf(mXCoord));
+                    mTextViewCoordY.setText("Coord Y: " + String.valueOf(mYCoord));
+                }
+                else{
+                    Toast.makeText(getActivity().getApplicationContext()
+                            ,"Debes Ingresar un Patron distinto de cero", Toast.LENGTH_SHORT).show();
+                }
+            }else{
+                mXCoord = null;
+                mYCoord = null;
             }
         }
+        catch (NumberFormatException e){
+            e.printStackTrace();
+            mXCoord = null;
+            mYCoord = null;
+            mTextViewCoordX.setText("Coord X: ");
+            mTextViewCoordY.setText("Coord Y: ");
+        }
+
+
 
     }
 

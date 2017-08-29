@@ -5,7 +5,11 @@ import android.app.ProgressDialog;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
+import android.graphics.Typeface;
 import android.graphics.drawable.BitmapDrawable;
+import android.hardware.Sensor;
+import android.hardware.SensorManager;
 import android.net.Uri;
 import android.os.Debug;
 import android.os.Handler;
@@ -17,8 +21,12 @@ import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Gravity;
+import android.view.View;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
+import org.tensorflow.contrib.android.TensorFlowInferenceInterface;
 
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -70,6 +78,7 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -83,6 +92,19 @@ import java8.util.stream.StreamSupport;
 public class MainActivity extends AppCompatActivity implements
         OnMapReadyCallback, OfflineFragment.OnFragmentOfflineListener,
         OnlineFragment.OnFragmentInteractionListener, SettingsFragment.OnFragmentInteractionListener{
+
+
+    static {
+        System.loadLibrary("tensorflow_inference");
+    }
+    private static final String MODEL_FILE = "file:///android_asset/optimized_svmX.pb";
+    private static final String INPUT_NODE = "I";
+    private static final String OUTPUT_NODE = "O";
+    private TensorFlowInferenceInterface inferenceInterface;
+    private SensorManager mSensorManager;
+    private HashMap<Marker,LatLng> markers = new HashMap<Marker,LatLng>();
+
+    private static final int[] INPUT_SIZE = {1,4};
 
     private LinearLayout mLinearBotomSheet;
     private ViewPagerBottomSheetBehavior mBottomBehavior;
@@ -111,7 +133,7 @@ public class MainActivity extends AppCompatActivity implements
     private int counter=0;
     private Double ActualXPosition;
     private Double ActualYPosition;
-    private Integer ActualOrientation;
+    //private Integer ActualOrientation;
     private Boolean mcanStartTakeMeditions = false;
     private static Integer NUMBER_OF_MEDITIONS = 10;
 
@@ -123,6 +145,20 @@ public class MainActivity extends AppCompatActivity implements
         // Init kontakt sdk
         KontaktSDK.initialize(this);
         checkPermissions();
+        mSensorManager = (SensorManager) getSystemService(this.SENSOR_SERVICE);
+        List<Sensor> deviceSensors = mSensorManager.getSensorList(Sensor.TYPE_ALL);
+        for(int i = 0;i<deviceSensors.size();i++){
+            Log.e("Sensor", deviceSensors.get(i).toString());
+        }
+
+        inferenceInterface = new TensorFlowInferenceInterface(getAssets(), MODEL_FILE);
+        float[] inputFloats = {-1.14105447f, -0.28410435f, -0.58953805f,  0.67933756f};
+
+        inferenceInterface.feed(INPUT_NODE, inputFloats, 1,4);
+        inferenceInterface.run(new String[] {OUTPUT_NODE});
+        int[] resu = new int[2];
+        inferenceInterface.fetch(OUTPUT_NODE,resu);
+        Log.e("Resultado", Integer.toString(resu.length));
 
         daoSession = ((App) getApplication()).getDaoSession();
         beaconsDao = daoSession.getBeaconsDao();
@@ -183,19 +219,64 @@ public class MainActivity extends AppCompatActivity implements
                     .title(actualBeacon.getUniqueId())
                     .snippet("x: " + actualBeacon.getXPosition() + ", y: " + actualBeacon.getYPosition())
                     .anchor(0.5f,0.5f)
-                    .icon(BitmapDescriptorFactory.fromBitmap(resizeMapIcons("smart_beacon",186,107))));
+                    .icon(BitmapDescriptorFactory.fromBitmap(resizeMapIcons("smart_beacon",136,77))));
 
             mk.setTag(actualBeacon);
 
         }
     }
 
+    public void loadFingerprintsMarkers(GoogleMap googleMap){
+        FingerprintDao fingerprintDao = daoSession.getFingerprintDao();
+        List<Fingerprint> fingerprints = fingerprintDao.loadAll();
+        Map<Double, List<Fingerprint> > mapX = StreamSupport.stream(fingerprints)
+                                        .collect(Collectors.groupingBy(x->x.getXPosition()));
+
+        for (Map.Entry<Double, List<Fingerprint>> entry : mapX.entrySet()) {
+
+            Map<Double, List<Fingerprint> > mapY = StreamSupport.stream(entry.getValue())
+                    .collect(Collectors.groupingBy(x->x.getYPosition()));
+
+            for (Map.Entry<Double, List<Fingerprint>> entry2 : mapY.entrySet()) {
+                LatLng position = new LatLng(entry2.getKey(), entry.getKey());
+                Marker mk = mMap.addMarker(new MarkerOptions()
+                        .position(position)
+                        .draggable(true)
+                        .title("Fingerprints")
+                        .snippet("x: " + entry.getKey() + ", y: " + entry2.getKey()  +"\n"
+                                +"Number of fingerprints: " + entry2.getValue().size() )
+                        .anchor(0.5f,0.5f)
+                        .icon(BitmapDescriptorFactory.fromBitmap(resizeMapIcons("circle_green",50,50))));
+
+                mk.setTag(entry2.getValue().get(0));
+                markers.put(mk,position);
+
+            }
+
+        }
+
+    }
+
     public void deleteMarker(Marker marker){
         try{
-            Beacons bc =(Beacons) marker.getTag();
-            daoSession.delete(bc);
-            Toast.makeText(getApplicationContext(), "Beacon borrado con exito", Toast.LENGTH_SHORT).show();
-            marker.remove();
+            if(marker.getTag() instanceof Beacons){
+                Beacons bc =(Beacons) marker.getTag();
+                daoSession.delete(bc);
+                Toast.makeText(getApplicationContext(), "Beacon borrado con exito", Toast.LENGTH_SHORT).show();
+                marker.remove();
+            }
+            else{
+                Fingerprint fingerprint =(Fingerprint)marker.getTag();
+                FingerprintDao fingerprintDao = daoSession.getFingerprintDao();
+                List<Fingerprint> fingerprints = fingerprintDao.queryBuilder()
+                        .where(FingerprintDao.Properties.XPosition.eq(fingerprint.getXPosition()),
+                                FingerprintDao.Properties.YPosition.eq(fingerprint.getYPosition()))
+                        .list();
+                fingerprintDao.deleteInTx(fingerprints);
+                Toast.makeText(getApplicationContext(), "Fingerprint Borrados", Toast.LENGTH_SHORT).show();
+                marker.remove();
+            }
+
         }
         catch (Exception ex){
             Toast.makeText(getApplicationContext(), "Error al intentar eliminar", Toast.LENGTH_SHORT).show();
@@ -230,7 +311,22 @@ public class MainActivity extends AppCompatActivity implements
                         Fingerprint fingerprint = new Fingerprint();
                         fingerprint.setXPosition(ActualXPosition);
                         fingerprint.setYPosition(ActualYPosition);
-                        fingerprint.setOrientation(ActualOrientation);
+                        /*switch(ActualOrientation){
+                            case 0:
+                                fingerprint.setNorte(1);
+                                break;
+                            case 1:
+                                fingerprint.setEste(1);
+                                break;
+                            case 2:
+                                fingerprint.setOeste(1);
+                                break;
+                            case 3:
+                                fingerprint.setSur(1);
+                                break;
+                            default:
+                                break;
+                        }*/
                         long idFingerprint = daoSession.insert(fingerprint);
                         fingerprint = fingerprintDao.load(idFingerprint);
 
@@ -274,7 +370,7 @@ public class MainActivity extends AppCompatActivity implements
                         mProgressDialogScan.incrementProgressBy(1);
 
                         if(counter==NUMBER_OF_MEDITIONS){
-                            onFingerprintCollected();
+                            onFingerprintCollected(fingerprint);
                             counter =0;
                         }
                     }
@@ -380,15 +476,47 @@ public class MainActivity extends AppCompatActivity implements
 
     }
 
-    public void onFingerprintCollected(){
+    public void onFingerprintCollected(Fingerprint fingerprint){
         stopScanning();
         mcanStartTakeMeditions = false;
         mProgressDialogScan.dismiss();
         mProgressDialogScan.setProgress(0);
-        ActualOrientation = null;
+        //ActualOrientation = null;
+        moveCameraToNewFingerprint(fingerprint);
+
+    }
+
+    public void moveCameraToNewFingerprint(Fingerprint fingerprint){
+        if(mMap!=null){
+            FingerprintDao fingerprintDao = daoSession.getFingerprintDao();
+            List<Fingerprint> fingerprints = fingerprintDao.queryBuilder()
+                    .where(FingerprintDao.Properties.XPosition.eq(ActualXPosition),
+                            FingerprintDao.Properties.YPosition.eq(ActualYPosition))
+                    .list();
+            LatLng position = new LatLng(ActualYPosition, ActualXPosition);
+            for(Iterator<Map.Entry<Marker, LatLng>> it = markers.entrySet().iterator(); it.hasNext(); ) {
+                Map.Entry<Marker, LatLng> entry = it.next();
+                if(entry.getValue().equals(position)) {
+                    entry.getKey().remove();
+                    it.remove();
+                }
+            }
+            Marker mk = mMap.addMarker(new MarkerOptions()
+                    .position(position)
+                    .draggable(true)
+                    .title("Fingerprints")
+                    .snippet("x: " + ActualXPosition + ", y: " + ActualYPosition +"\n"
+                                +"Number of fingerprints: " + fingerprints.size() )
+                    .anchor(0.5f,0.5f)
+                    .icon(BitmapDescriptorFactory.fromBitmap(resizeMapIcons("circle_green",50,50))));
+
+            mk.setTag(fingerprints.get(0));
+            markers.put(mk,position);
+            //mBottomBehavior.setState(ViewPagerBottomSheetBehavior.STATE_COLLAPSED);
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(position));
+        }
         ActualXPosition = null;
         ActualYPosition = null;
-
     }
 
     /**
@@ -444,6 +572,7 @@ public class MainActivity extends AppCompatActivity implements
         // Add a marker in Sydney and move the camera
         LatLng sydney = new LatLng(0, 0);
         loadBeaconsMarkers(mMap);
+        loadFingerprintsMarkers(mMap);
         mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
     }
 
@@ -473,9 +602,51 @@ public class MainActivity extends AppCompatActivity implements
     public void initializeMap(){
         if(mMap!=null){
             mMap.setMapType(GoogleMap.MAP_TYPE_NONE);
+            mMap.getUiSettings().setCompassEnabled(true);
+            mMap.setPadding(600,40,0,0);
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                    == PackageManager.PERMISSION_GRANTED) {
+                mMap.setMyLocationEnabled(true);
+            } else {
+                Toast.makeText(this, "You have to accept to enjoy all app's services!", Toast.LENGTH_LONG).show();
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                        == PackageManager.PERMISSION_GRANTED) {
+                    mMap.setMyLocationEnabled(true);
+                }
+            }
+            mMap.getUiSettings().setMyLocationButtonEnabled(false);
             mMap.setLatLngBoundsForCameraTarget(restrictions);
             mMap.setMinZoomPreference(4);
             mMap.setMaxZoomPreference(5);
+            mMap.setInfoWindowAdapter(new GoogleMap.InfoWindowAdapter() {
+
+                @Override
+                public View getInfoWindow(Marker arg0) {
+                    return null;
+                }
+
+                @Override
+                public View getInfoContents(Marker marker) {
+
+                    LinearLayout info = new LinearLayout(MainActivity.this);
+                    info.setOrientation(LinearLayout.VERTICAL);
+
+                    TextView title = new TextView(MainActivity.this);
+                    title.setTextColor(Color.BLACK);
+                    title.setGravity(Gravity.CENTER);
+                    title.setTypeface(null, Typeface.BOLD);
+                    title.setText(marker.getTitle());
+
+                    TextView snippet = new TextView(MainActivity.this);
+                    snippet.setTextColor(Color.GRAY);
+                    snippet.setText(marker.getSnippet());
+
+                    info.addView(title);
+                    info.addView(snippet);
+
+                    return info;
+                }
+            });
         }
     }
 
@@ -540,7 +711,7 @@ public class MainActivity extends AppCompatActivity implements
                     .title(beacon.getUniqueId())
                     .snippet("x: " + beacon.getXPosition() + ", y: " + beacon.getYPosition())
                     .anchor(0.5f,0.5f)
-                    .icon(BitmapDescriptorFactory.fromBitmap(resizeMapIcons("smart_beacon",186,107))));
+                    .icon(BitmapDescriptorFactory.fromBitmap(resizeMapIcons("smart_beacon",136,77))));
 
             mk.setTag(beacon);
             mBottomBehavior.setState(ViewPagerBottomSheetBehavior.STATE_COLLAPSED);
@@ -550,7 +721,7 @@ public class MainActivity extends AppCompatActivity implements
     }
 
     @Override
-    public void onGetFingerprint(Double x, Double y, Integer orientation) {
+    public void onGetFingerprint(Double x, Double y) {
         mProgressDialogScan.setMax(NUMBER_OF_MEDITIONS);
         mProgressDialogScan.setTitle("Generando fingerprint");
         mProgressDialogScan.setMessage("Conectando...");
@@ -558,7 +729,7 @@ public class MainActivity extends AppCompatActivity implements
         mProgressDialogScan.show();
         ActualXPosition = x;
         ActualYPosition = y;
-        ActualOrientation = orientation;
+        //ActualOrientation = orientation;
         startScanning(1);
 
         new Handler().postDelayed(new Runnable() {

@@ -20,7 +20,6 @@ public class Fingerprint {
 
     private Double xPosition;
     private Double yPosition;
-    private Integer orientation;
 
     @ToMany(referencedJoinProperty = "fingerprintId")
     @OrderBy("beaconId ASC")
@@ -34,18 +33,22 @@ public class Fingerprint {
     @Generated(hash = 1556433806)
     private transient FingerprintDao myDao;
 
-    @Generated(hash = 1734398234)
-    public Fingerprint(Long Id, Double xPosition, Double yPosition,
-            Integer orientation) {
-        this.Id = Id;
-        this.xPosition = xPosition;
-        this.yPosition = yPosition;
-        this.orientation = orientation;
-    }
+
 
     @Generated(hash = 621753556)
     public Fingerprint() {
     }
+
+
+
+    @Generated(hash = 1415065902)
+    public Fingerprint(Long Id, Double xPosition, Double yPosition) {
+        this.Id = Id;
+        this.xPosition = xPosition;
+        this.yPosition = yPosition;
+    }
+
+
 
     public Long getId() {
         return this.Id;
@@ -69,14 +72,6 @@ public class Fingerprint {
 
     public void setYPosition(Double yPosition) {
         this.yPosition = yPosition;
-    }
-
-    public Integer getOrientation() {
-        return this.orientation;
-    }
-
-    public void setOrientation(Integer orientation) {
-        this.orientation = orientation;
     }
 
     /**
@@ -151,6 +146,3 @@ public class Fingerprint {
     }
 
 }
-
-
-

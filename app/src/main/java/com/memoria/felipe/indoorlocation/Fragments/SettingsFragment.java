@@ -230,7 +230,10 @@ public class SettingsFragment extends Fragment {
                     .map(x->x.getUniqueId()).collect(Collectors.toList());
             header.add("X");
             header.add("Y");
-            header.add("Orientation");
+            /*header.add("Norte");
+            header.add("Sur");
+            header.add("Este");
+            header.add("Oeste");*/
             header.addAll(beaconsNames);
             String[] row = header.toArray(new String[0]);
             writer.writeNext(row);
@@ -248,7 +251,10 @@ public class SettingsFragment extends Fragment {
 
                 rowList.add(fingerprints.get(i).getXPosition().toString());
                 rowList.add(fingerprints.get(i).getYPosition().toString());
-                rowList.add(fingerprints.get(i).getOrientation().toString());
+                /*rowList.add(fingerprints.get(i).getNorte().toString());
+                rowList.add(fingerprints.get(i).getSur().toString());
+                rowList.add(fingerprints.get(i).getEste().toString());
+                rowList.add(fingerprints.get(i).getOeste().toString());*/
                 rowList.addAll(rssi);
                 row = rowList.toArray(new String[0]);
                 writer.writeNext(row);

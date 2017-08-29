@@ -68,7 +68,7 @@ public class OfflineFragment extends Fragment {
     private EditText mEditXBeacon;
     private EditText mEditYBeacon;
     private Button mButtonIngresar;
-    private Spinner mSpinnerOrientation;
+    //private Spinner mSpinnerOrientation;
     private Button mButtonMakeScan;
 
     private Double mXCoord;
@@ -137,14 +137,14 @@ public class OfflineFragment extends Fragment {
         mEditTextPosX = (EditText)getView().findViewById(R.id.edit_text_patron_pos_x);
         mEditTextPosY = (EditText)getView().findViewById(R.id.edit_text_patron_pos_y);
         mEditTextPatron = (EditText)getView().findViewById(R.id.edit_text_patron);
-        mSpinnerOrientation = (Spinner) getView().findViewById(R.id.spinner_orientation);
+        //mSpinnerOrientation = (Spinner) getView().findViewById(R.id.spinner_orientation);
         // Create an ArrayAdapter using the string array and a default spinner layout
         ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(getActivity().getApplicationContext(),
                 R.array.orientation_array, android.R.layout.simple_spinner_item);
         // Specify the layout to use when the list of choices appears
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         // Apply the adapter to the spinner
-        mSpinnerOrientation.setAdapter(adapter);
+        //mSpinnerOrientation.setAdapter(adapter);
         mButtonMakeScan = (Button)getView().findViewById(R.id.make_scan_button);
 
         mButtonInitScanBeacon = (Button)getView().findViewById(R.id.button_init_scan_beacon);
@@ -225,10 +225,10 @@ public class OfflineFragment extends Fragment {
                 String xString = mEditTextPosX.getText().toString();
                 String yString = mEditTextPosY.getText().toString();
                 String patronString  = mEditTextPatron.getText().toString();
-                Integer orientation = mSpinnerOrientation.getSelectedItemPosition();
-                if(mXCoord!=null && mYCoord!=null &&
-                        orientation!= AdapterView.INVALID_POSITION ){
-                    mListener.onGetFingerprint(mXCoord,mYCoord,orientation);
+                //Integer orientation = mSpinnerOrientation.getSelectedItemPosition();
+                if(mXCoord!=null && mYCoord!=null /*&&
+                        orientation!= AdapterView.INVALID_POSITION*/ ){
+                    mListener.onGetFingerprint(mXCoord,mYCoord);
                 }
                 else{
                     Toast.makeText(getActivity().getApplicationContext(),
@@ -417,6 +417,6 @@ public class OfflineFragment extends Fragment {
         // TODO: Update argument type and name
         void onRequestCloseBeacon();
         void onInsertBeacon(Beacons beacon);
-        void onGetFingerprint(Double x, Double y, Integer orientation);
+        void onGetFingerprint(Double x, Double y);
     }
 }

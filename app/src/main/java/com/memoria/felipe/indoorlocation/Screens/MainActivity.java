@@ -2,6 +2,8 @@ package com.memoria.felipe.indoorlocation.Screens;
 
 import android.Manifest;
 import android.app.ProgressDialog;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -94,6 +96,7 @@ public class MainActivity extends AppCompatActivity implements
         OnlineFragment.OnFragmentInteractionListener, SettingsFragment.OnFragmentInteractionListener{
 
 
+    // Usados por libreria tensorflow
     static {
         System.loadLibrary("tensorflow_inference");
     }
@@ -136,6 +139,7 @@ public class MainActivity extends AppCompatActivity implements
     //private Integer ActualOrientation;
     private Boolean mcanStartTakeMeditions = false;
     private static Integer NUMBER_OF_MEDITIONS = 10;
+    private static Integer INTERVAL_MEDITIONS = 350;
 
 
     @Override
@@ -150,6 +154,13 @@ public class MainActivity extends AppCompatActivity implements
         for(int i = 0;i<deviceSensors.size();i++){
             Log.e("Sensor", deviceSensors.get(i).toString());
         }
+
+        // Shared preferences
+        SharedPreferences sharedPref = this.getSharedPreferences(
+                "Preferencias_Scan", Context.MODE_PRIVATE);
+
+        NUMBER_OF_MEDITIONS = sharedPref.getInt("Numero_Mediciones", 10);
+        INTERVAL_MEDITIONS = sharedPref.getInt("Intervalo_Mediciones", 350);
 
         inferenceInterface = new TensorFlowInferenceInterface(getAssets(), MODEL_FILE);
         float[] inputFloats = {-1.14105447f, -0.28410435f, -0.58953805f,  0.67933756f};
@@ -181,6 +192,17 @@ public class MainActivity extends AppCompatActivity implements
         mapFragment.getMapAsync(this);
     }
 
+    public void setScanValues(Integer numeroMediciones, Integer intervalo){
+        SharedPreferences sharedPref = this.getSharedPreferences("Preferencias_Scan", Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = sharedPref.edit();
+        editor.putInt("Numero_Mediciones", numeroMediciones);
+        editor.putInt("Intervalo_Mediciones", numeroMediciones);
+        editor.commit();
+
+        NUMBER_OF_MEDITIONS = numeroMediciones;
+        INTERVAL_MEDITIONS = intervalo;
+    }
+
     @Override
     protected void onStart() {
         super.onStart();
@@ -196,7 +218,7 @@ public class MainActivity extends AppCompatActivity implements
                 //Using BALANCED for best performance/battery ratio
                 .scanMode(ScanMode.BALANCED)
                 //OnDeviceUpdate callback will be received with 5 seconds interval
-                .deviceUpdateCallbackInterval(350);
+                .deviceUpdateCallbackInterval(INTERVAL_MEDITIONS);
 
         //proximityManager.filters().eddystoneFilter(createFilterBeaconPro());
         proximityManager.setEddystoneListener(createEddystoneListener(1));
@@ -246,7 +268,7 @@ public class MainActivity extends AppCompatActivity implements
                         .snippet("x: " + entry.getKey() + ", y: " + entry2.getKey()  +"\n"
                                 +"Number of fingerprints: " + entry2.getValue().size() )
                         .anchor(0.5f,0.5f)
-                        .icon(BitmapDescriptorFactory.fromBitmap(resizeMapIcons("circle_green",50,50))));
+                        .icon(BitmapDescriptorFactory.fromBitmap(resizeMapIcons("red_circle",25,25))));
 
                 mk.setTag(entry2.getValue().get(0));
                 markers.put(mk,position);
@@ -508,7 +530,7 @@ public class MainActivity extends AppCompatActivity implements
                     .snippet("x: " + ActualXPosition + ", y: " + ActualYPosition +"\n"
                                 +"Number of fingerprints: " + fingerprints.size() )
                     .anchor(0.5f,0.5f)
-                    .icon(BitmapDescriptorFactory.fromBitmap(resizeMapIcons("circle_green",50,50))));
+                    .icon(BitmapDescriptorFactory.fromBitmap(resizeMapIcons("red_circle",25,25))));
 
             mk.setTag(fingerprints.get(0));
             markers.put(mk,position);
@@ -755,5 +777,33 @@ public class MainActivity extends AppCompatActivity implements
                 mCloseBeacon.clearFields();
             }
         }, 10000);
+    }
+
+    @Override
+    public void onRequestMeditionsData() {
+        SettingsFragment settingsFragment =  (SettingsFragment) mViewPagerBottom.getAdapter().instantiateItem(mViewPagerBottom,2);
+        settingsFragment.catchDataResults(NUMBER_OF_MEDITIONS, INTERVAL_MEDITIONS);
+    }
+
+    @Override
+    public void onSetMeditionsData(Integer meditions, Integer interval) {
+
+        try{
+            SharedPreferences sharedPref = this.getSharedPreferences(
+                    "Preferencias_Scan", Context.MODE_PRIVATE);
+            SharedPreferences.Editor editor = sharedPref.edit();
+            editor.putInt("Numero_Mediciones", meditions);
+            editor.putInt("Intervalo_Mediciones", interval);
+            editor.commit();
+            NUMBER_OF_MEDITIONS = meditions;
+            INTERVAL_MEDITIONS = interval;
+            proximityManager.configuration()
+                    //OnDeviceUpdate callback will be received with 5 seconds interval
+                    .deviceUpdateCallbackInterval(INTERVAL_MEDITIONS);
+        }
+        catch (Exception e){
+            e.printStackTrace();
+        }
+
     }
 }

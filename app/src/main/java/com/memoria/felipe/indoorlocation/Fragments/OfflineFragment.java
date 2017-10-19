@@ -335,7 +335,14 @@ public class OfflineFragment extends Fragment {
             mButtonInitScanBeacon.setEnabled(true);
             mTextViewMac.setText("MAC: " + bc.getMAC());
             mTextViewUniqueId.setText("Id Unico: " + bc.getUniqueId());
-
+        }
+        else{
+            mNewBeacon = null;
+            mProgressScanBeacon.setVisibility(View.GONE);
+            mRelativeInsertBeacon.setVisibility(View.GONE);
+            mButtonInitScanBeacon.setEnabled(true);
+            mTextViewMac.setText("");
+            mTextViewUniqueId.setText("");
         }
 
     }

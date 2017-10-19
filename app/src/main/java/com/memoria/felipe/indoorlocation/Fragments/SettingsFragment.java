@@ -6,10 +6,15 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.support.v4.app.Fragment;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.EditText;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import com.memoria.felipe.indoorlocation.R;
 import com.memoria.felipe.indoorlocation.Utils.App;
@@ -57,6 +62,12 @@ public class SettingsFragment extends Fragment {
     private FingerprintDao fingerprintDao;
     private Beacon_RSSIDao beacon_rssiDao;
     private BeaconsDao beaconsDao;
+
+    private EditText mEditTextNumberMeditions;
+    private EditText mEditTextIntervalMeditions;
+    private TextView mTextViewTotalTime;
+    private Button mButtonSaveMeditions;
+
 
     private OnFragmentInteractionListener mListener;
 
@@ -110,6 +121,12 @@ public class SettingsFragment extends Fragment {
         mButtonExport = (Button)getView().findViewById(R.id.button_export);
         mButtonCsv = (Button)getView().findViewById(R.id.button__generate_csv);
 
+        mEditTextNumberMeditions = (EditText)getView().findViewById(R.id.edit_text_number_of_meditions);
+        mEditTextIntervalMeditions = (EditText)getView().findViewById(R.id.edit_text_interval_meditions);
+        mTextViewTotalTime = (TextView)getView().findViewById(R.id.textview_calculo_tiempo_mediciones);
+
+        mButtonSaveMeditions = (Button)getView().findViewById(R.id.button_save_meditions_settings);
+
         mButtonExport.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -123,13 +140,103 @@ public class SettingsFragment extends Fragment {
                 createCSVFile();
             }
         });
+
+        loadInitialData();
+
+        mEditTextIntervalMeditions.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                UpdateMeditionsTime();
+            }
+        });
+
+        mEditTextNumberMeditions.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                UpdateMeditionsTime();
+            }
+        });
+
+        mButtonSaveMeditions.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                try{
+                    Integer numberOfMedition = Integer.valueOf(mEditTextNumberMeditions.getText().toString());
+                    Integer intervalMeditions = Integer.valueOf(mEditTextIntervalMeditions.getText().toString());
+
+                    if(numberOfMedition!=null && intervalMeditions!=null){
+
+                        mListener.onSetMeditionsData(numberOfMedition, intervalMeditions);
+
+                    }
+                    else{
+                        Toast.makeText(getActivity(), "Debes introducir campos validos", Toast.LENGTH_SHORT).show();
+                    }
+                }
+                catch (Exception e){
+                    e.printStackTrace();
+                    Toast.makeText(getActivity(), "Debes introducir campos validos", Toast.LENGTH_SHORT).show();
+                }
+
+            }
+        });
+    }
+
+    public void UpdateMeditionsTime(){
+        try{
+            Integer numberOfMedition = Integer.valueOf(mEditTextNumberMeditions.getText().toString());
+            Integer intervalMeditions = Integer.valueOf(mEditTextIntervalMeditions.getText().toString());
+
+            if(numberOfMedition!=null && intervalMeditions!=null){
+                Integer totalTime = numberOfMedition*intervalMeditions;
+                Double segundos = totalTime/1000.0;
+
+                mTextViewTotalTime.setText("Tiempo Total: " + String.valueOf(segundos) + " s");
+
+            }
+            else{
+                Toast.makeText(getActivity(), "Debes introducir campos validos", Toast.LENGTH_SHORT).show();
+            }
+        }
+        catch (Exception e){
+            e.printStackTrace();
+            Toast.makeText(getActivity(), "Debes introducir campos validos", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    public void loadInitialData(){
+        mListener.onRequestMeditionsData();
+    }
+
+    public void catchDataResults(Integer numberMeditions, Integer interval){
+        mEditTextNumberMeditions.setText(numberMeditions.toString());
+        mEditTextIntervalMeditions.setText(interval.toString());
     }
 
 
     // TODO: Rename method, update argument and hook method into UI event
     public void onButtonPressed(Uri uri) {
         if (mListener != null) {
-            mListener.onFragmentInteraction(uri);
         }
     }
 
@@ -162,7 +269,8 @@ public class SettingsFragment extends Fragment {
      */
     public interface OnFragmentInteractionListener {
         // TODO: Update argument type and name
-        void onFragmentInteraction(Uri uri);
+        void onRequestMeditionsData();
+        void onSetMeditionsData(Integer meditions, Integer interval);
     }
 
     public void exportDatabse(String databaseName) {

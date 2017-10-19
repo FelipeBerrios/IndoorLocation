@@ -34,7 +34,8 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:orientation="horizontal"
+            android:layout_marginBottom="32dp">
 
             <TextView
                 android:id="@+id/textview_generar_csv"
@@ -53,9 +54,66 @@
         </LinearLayout>
 
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Configuracion"
+            android:textColor="@color/colorPrimary"
+            android:gravity="center"/>
 
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Numero de Mediciones: "
+                android:layout_marginEnd="8dp"/>
+
+            <EditText
+                android:id="@+id/edit_text_number_of_meditions"
+                android:layout_width="50dp"
+                android:inputType="number"
+                android:layout_height="wrap_content"/>
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Intervalo(ms): "
+                android:layout_marginEnd="8dp"/>
+
+            <EditText
+                android:id="@+id/edit_text_interval_meditions"
+                android:layout_width="50dp"
+                android:inputType="number"
+                android:layout_height="wrap_content"/>
+
+        </LinearLayout>
+
+
+        <TextView
+            android:id="@+id/textview_calculo_tiempo_mediciones"
+            android:gravity="center"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <Button
+            android:id="@+id/button_save_meditions_settings"
+            android:layout_gravity="center_horizontal"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Guardar" />
 
     </LinearLayout>
 

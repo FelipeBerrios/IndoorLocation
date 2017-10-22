@@ -27,6 +27,8 @@
                 android:id="@+id/button_export"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:backgroundTint="@color/colorAccent"
+                android:textColor="#fff"
                 android:text="Exportar"/>
 
         </LinearLayout>
@@ -49,6 +51,8 @@
                 android:id="@+id/button__generate_csv"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:backgroundTint="@color/colorAccent"
+                android:textColor="#fff"
                 android:text="Generar"/>
 
         </LinearLayout>
@@ -113,11 +117,22 @@
             android:layout_gravity="center_horizontal"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:backgroundTint="@color/colorAccent"
+            android:textColor="#fff"
             android:text="Guardar" />
 
     </LinearLayout>
 
     <!-- TODO: Update blank fragment layout -->
+
+    <Button
+        android:id="@+id/button_delete_db"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:backgroundTint="@color/red_material"
+        android:layout_gravity="bottom|end"
+        android:textColor="#fff"
+        android:text="Eliminar BD"/>
 
 
 </FrameLayout>

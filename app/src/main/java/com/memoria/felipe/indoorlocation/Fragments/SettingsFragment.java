@@ -1,11 +1,14 @@
 package com.memoria.felipe.indoorlocation.Fragments;
 
 import android.content.Context;
+import android.content.DialogInterface;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.support.v4.app.Fragment;
+import android.support.v7.app.AlertDialog;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
@@ -17,6 +20,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.memoria.felipe.indoorlocation.R;
+import com.memoria.felipe.indoorlocation.Screens.MainActivity;
 import com.memoria.felipe.indoorlocation.Utils.App;
 import com.memoria.felipe.indoorlocation.Utils.Model.Beacon_RSSI;
 import com.memoria.felipe.indoorlocation.Utils.Model.Beacon_RSSIDao;
@@ -62,6 +66,7 @@ public class SettingsFragment extends Fragment {
     private FingerprintDao fingerprintDao;
     private Beacon_RSSIDao beacon_rssiDao;
     private BeaconsDao beaconsDao;
+    private Button mButtonDelete;
 
     private EditText mEditTextNumberMeditions;
     private EditText mEditTextIntervalMeditions;
@@ -126,6 +131,14 @@ public class SettingsFragment extends Fragment {
         mTextViewTotalTime = (TextView)getView().findViewById(R.id.textview_calculo_tiempo_mediciones);
 
         mButtonSaveMeditions = (Button)getView().findViewById(R.id.button_save_meditions_settings);
+        mButtonDelete = (Button)getView().findViewById(R.id.button_delete_db);
+
+        mButtonDelete.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showDialogDeleteBD();
+            }
+        });
 
         mButtonExport.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -240,6 +253,30 @@ public class SettingsFragment extends Fragment {
         }
     }
 
+    public void showDialogDeleteBD(){
+        AlertDialog.Builder builder;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            builder = new AlertDialog.Builder(getActivity(), android.R.style.Theme_Material_Dialog_Alert);
+        } else {
+            builder = new AlertDialog.Builder(getActivity());
+        }
+        builder.setTitle("Eliminar Base de Datos")
+                .setMessage("¿Seguro que deseas eliminar los registros de la base de datos?")
+                .setPositiveButton(android.R.string.yes, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        // continue with delete
+                        mListener.onDeleteDB();
+                    }
+                })
+                .setNegativeButton(android.R.string.no, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.dismiss();
+                    }
+                })
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .show();
+    }
+
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
@@ -257,6 +294,7 @@ public class SettingsFragment extends Fragment {
         mListener = null;
     }
 
+
     /**
      * This interface must be implemented by activities that contain this
      * fragment to allow an interaction in this fragment to be communicated
@@ -271,6 +309,7 @@ public class SettingsFragment extends Fragment {
         // TODO: Update argument type and name
         void onRequestMeditionsData();
         void onSetMeditionsData(Integer meditions, Integer interval);
+        void onDeleteDB();
     }
 
     public void exportDatabse(String databaseName) {

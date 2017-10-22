@@ -306,6 +306,39 @@ public class MainActivity extends AppCompatActivity implements
         }
     }
 
+    @Override
+    public void onDeleteDB(){
+        try{
+            daoSession.getBeacon_RSSIDao().deleteAll();
+            daoSession.getBeaconsDao().deleteAll();
+            daoSession.getFingerprintDao().deleteAll();
+            markers.clear();
+            mMap.clear();
+            TileOverlayOptions opts = new TileOverlayOptions();
+
+            // Get a File reference to the MBTiles file.
+            File myMBTiles = loadFilefromAssets(null);
+
+            // Create an instance of MapBoxOfflineTileProvider.
+            MapBoxOfflineTileProvider provider = new MapBoxOfflineTileProvider(myMBTiles);
+
+            // Set the tile provider on the TileOverlayOptions.
+            opts.tileProvider(provider);
+
+            // Add the tile overlay to the map.
+            TileOverlay overlay = mMap.addTileOverlay(opts);
+            LatLng sydney = new LatLng(0, 0);
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
+            Toast.makeText(this, "Base de datos eliminada con exito", Toast.LENGTH_SHORT).show();
+
+        }
+        catch(Exception e){
+            e.printStackTrace();
+            Toast.makeText(this, "Problema al eliminar la base de datos", Toast.LENGTH_SHORT).show();
+        }
+
+    }
+
     /**
      *
      * @param mode is scanning for insert beacon, 0 or 1 scanning data
@@ -687,12 +720,14 @@ public class MainActivity extends AppCompatActivity implements
                     Toast.makeText(MainActivity.this, "Ya esta escaneando", Toast.LENGTH_SHORT).show();
                     return;
                 }
+
                 proximityManager.setEddystoneListener(createEddystoneListener(mode));
                 proximityManager.startScanning();
                 Toast.makeText(MainActivity.this, "Escaneando...", Toast.LENGTH_SHORT).show();
                 if(mode==0){
                     onServiceReadyBeacon();
                 }
+
             }
         });
     }
@@ -744,24 +779,31 @@ public class MainActivity extends AppCompatActivity implements
 
     @Override
     public void onGetFingerprint(Double x, Double y) {
-        mProgressDialogScan.setMax(NUMBER_OF_MEDITIONS);
-        mProgressDialogScan.setTitle("Generando fingerprint");
-        mProgressDialogScan.setMessage("Conectando...");
-        mProgressDialogScan.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-        mProgressDialogScan.show();
-        ActualXPosition = x;
-        ActualYPosition = y;
-        //ActualOrientation = orientation;
-        startScanning(1);
+        Integer numberOfBeacons = beaconsDao.loadAll().size();
+        if(numberOfBeacons==0){
+            Toast.makeText(MainActivity.this, "Debes ingresar al menos un Beacon", Toast.LENGTH_SHORT).show();
+        }
+        else{
+            mProgressDialogScan.setMax(NUMBER_OF_MEDITIONS);
+            mProgressDialogScan.setTitle("Generando fingerprint");
+            mProgressDialogScan.setMessage("Conectando...");
+            mProgressDialogScan.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+            mProgressDialogScan.show();
+            ActualXPosition = x;
+            ActualYPosition = y;
+            //ActualOrientation = orientation;
+            startScanning(1);
 
-        new Handler().postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                mProgressDialogScan.setMessage("Obteniendo mediciones");
-                mProgressDialogScan.setProgress(0);
-                mcanStartTakeMeditions = true;
-            }
-        }, 5000);
+            new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    mProgressDialogScan.setMessage("Obteniendo mediciones");
+                    mProgressDialogScan.setProgress(0);
+                    mcanStartTakeMeditions = true;
+                }
+            }, 5000);
+        }
+
     }
 
     public void onServiceReadyBeacon(){

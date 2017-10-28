@@ -69,6 +69,7 @@ import com.memoria.felipe.indoorlocation.Utils.MapBoxOfflineTileProvider;
 import com.memoria.felipe.indoorlocation.Fragments.OfflineFragment;
 import com.memoria.felipe.indoorlocation.R;
 import com.memoria.felipe.indoorlocation.Utils.Model.Beacon_RSSI;
+import com.memoria.felipe.indoorlocation.Utils.Model.Beacon_RSSIDao;
 import com.memoria.felipe.indoorlocation.Utils.Model.Beacons;
 import com.memoria.felipe.indoorlocation.Utils.Model.BeaconsDao;
 import com.memoria.felipe.indoorlocation.Utils.Model.DaoSession;
@@ -290,10 +291,18 @@ public class MainActivity extends AppCompatActivity implements
             else{
                 Fingerprint fingerprint =(Fingerprint)marker.getTag();
                 FingerprintDao fingerprintDao = daoSession.getFingerprintDao();
+                Beacon_RSSIDao beacon_rssiDao = daoSession.getBeacon_RSSIDao();
                 List<Fingerprint> fingerprints = fingerprintDao.queryBuilder()
                         .where(FingerprintDao.Properties.XPosition.eq(fingerprint.getXPosition()),
                                 FingerprintDao.Properties.YPosition.eq(fingerprint.getYPosition()))
                         .list();
+
+                for(int i=0; i<fingerprints.size(); i++){
+                    fingerprints.get(i).resetRssi();
+                    List<Beacon_RSSI> beacon_rssis = fingerprints.get(i).getRssi();
+                    beacon_rssiDao.deleteInTx(beacon_rssis);
+                }
+
                 fingerprintDao.deleteInTx(fingerprints);
                 Toast.makeText(getApplicationContext(), "Fingerprint Borrados", Toast.LENGTH_SHORT).show();
                 marker.remove();

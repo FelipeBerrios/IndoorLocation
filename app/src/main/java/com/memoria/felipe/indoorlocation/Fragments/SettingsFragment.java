@@ -7,6 +7,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
 import android.support.v4.app.Fragment;
 import android.support.v7.app.AlertDialog;
 import android.text.Editable;
@@ -350,73 +351,84 @@ public class SettingsFragment extends Fragment {
     }
 
     public void createCSVFile(){
-        try{
-            String fileName= "IndoorFingerprint.csv";
-            List<Beacons> beaconses = beaconsDao.loadAll();
-            String external = android.os.Environment.getExternalStorageDirectory().getAbsolutePath();
-            String folderS = external + File.separator +"Indoor";
-            String csv = folderS + File.separator + fileName;
-            CSVWriter writer;
-            File folder = new File(folderS);
 
-            if(!folder.exists()){
-                folder.mkdirs();
+        Handler handler = new Handler();  //Optional. Define as a variable in your activity.
+
+        Runnable r = new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                try{
+                    String fileName= "IndoorFingerprint.csv";
+                    List<Beacons> beaconses = beaconsDao.loadAll();
+                    String external = android.os.Environment.getExternalStorageDirectory().getAbsolutePath();
+                    String folderS = external + File.separator +"Indoor";
+                    String csv = folderS + File.separator + fileName;
+                    CSVWriter writer;
+                    File folder = new File(folderS);
+
+                    if(!folder.exists()){
+                        folder.mkdirs();
+                    }
+
+                    File f = new File(csv);
+                    // File exist
+                    if(f.exists() && !f.isDirectory()){
+                        FileWriter mFileWriter = new FileWriter(csv, true);
+                        writer = new CSVWriter(mFileWriter);
+                    }
+                    else {
+                        writer = new CSVWriter(new FileWriter(csv));
+                    }
+                    List<String> header = new ArrayList<String>();
+                    List<String> beaconsNames = StreamSupport.stream(beaconses)
+                            .map(x->x.getUniqueId()).collect(Collectors.toList());
+                    header.add("X");
+                    header.add("Y");
+                    header.addAll(beaconsNames);
+                    String[] row = header.toArray(new String[0]);
+                    writer.writeNext(row);
+
+                    List<Fingerprint> fingerprints = fingerprintDao.loadAll();
+                    List<Beacon_RSSI> actual = new ArrayList<Beacon_RSSI>();
+                    List<String> rowList = new ArrayList<String>();
+                    for(int i = 0; i<fingerprints.size(); i++){
+                        actual = beacon_rssiDao.queryBuilder()
+                                .where(Beacon_RSSIDao.Properties.FingerprintId.eq(fingerprints.get(i).getId()))
+                                .orderAsc(Beacon_RSSIDao.Properties.BeaconId)
+                                .list();
+                        List<String> rssi = StreamSupport.stream(actual)
+                                .map(x->x.getRssi().toString()).collect(Collectors.toList());
+
+                        rowList.add(fingerprints.get(i).getXPosition().toString());
+                        rowList.add(fingerprints.get(i).getYPosition().toString());
+                        rowList.addAll(rssi);
+                        row = rowList.toArray(new String[0]);
+                        writer.writeNext(row);
+                        rowList.clear();
+
+                    }
+                    writer.close();
+
+                    MediaScannerConnection.scanFile(getActivity().getApplicationContext(),
+                            new String[] {f.toString()}, null, null);
+                }
+                catch (IOException e){
+                    e.printStackTrace();
+                }
+                handler.post(new Runnable()  //If you want to update the UI, queue the code on the UI thread
+                {
+                    public void run()
+                    {
+                        Toast.makeText(getActivity(), "CSV creado con exito", Toast.LENGTH_SHORT).show();
+                    }
+                });
             }
+        };
 
-            File f = new File(csv);
-            // File exist
-            if(f.exists() && !f.isDirectory()){
-                FileWriter mFileWriter = new FileWriter(csv, true);
-                writer = new CSVWriter(mFileWriter);
-            }
-            else {
-                writer = new CSVWriter(new FileWriter(csv));
-            }
-            List<String> header = new ArrayList<String>();
-            List<String> beaconsNames = StreamSupport.stream(beaconses)
-                    .map(x->x.getUniqueId()).collect(Collectors.toList());
-            header.add("X");
-            header.add("Y");
-            /*header.add("Norte");
-            header.add("Sur");
-            header.add("Este");
-            header.add("Oeste");*/
-            header.addAll(beaconsNames);
-            String[] row = header.toArray(new String[0]);
-            writer.writeNext(row);
-
-            List<Fingerprint> fingerprints = fingerprintDao.loadAll();
-            List<Beacon_RSSI> actual = new ArrayList<Beacon_RSSI>();
-            List<String> rowList = new ArrayList<String>();
-            for(int i = 0; i<fingerprints.size(); i++){
-                actual = beacon_rssiDao.queryBuilder()
-                        .where(Beacon_RSSIDao.Properties.FingerprintId.eq(fingerprints.get(i).getId()))
-                        .orderAsc(Beacon_RSSIDao.Properties.BeaconId)
-                        .list();
-                List<String> rssi = StreamSupport.stream(actual)
-                        .map(x->x.getRssi().toString()).collect(Collectors.toList());
-
-                rowList.add(fingerprints.get(i).getXPosition().toString());
-                rowList.add(fingerprints.get(i).getYPosition().toString());
-                /*rowList.add(fingerprints.get(i).getNorte().toString());
-                rowList.add(fingerprints.get(i).getSur().toString());
-                rowList.add(fingerprints.get(i).getEste().toString());
-                rowList.add(fingerprints.get(i).getOeste().toString());*/
-                rowList.addAll(rssi);
-                row = rowList.toArray(new String[0]);
-                writer.writeNext(row);
-                rowList.clear();
-
-            }
-            writer.close();
-
-            MediaScannerConnection.scanFile(getActivity().getApplicationContext(),
-                    new String[] {f.toString()}, null, null);
-        }
-        catch (IOException e){
-
-        }
-
+        Thread t = new Thread(r);
+        t.start();
 
     }
 }

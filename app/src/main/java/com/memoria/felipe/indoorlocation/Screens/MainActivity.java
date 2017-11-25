@@ -28,6 +28,12 @@ import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import org.apache.commons.math3.linear.ArrayRealVector;
+import org.apache.commons.math3.linear.MatrixUtils;
+import org.apache.commons.math3.linear.RealMatrix;
+import org.apache.commons.math3.linear.RealVector;
+import org.apache.commons.math3.linear.RealVectorFormat;
 import org.tensorflow.contrib.android.TensorFlowInferenceInterface;
 
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -75,11 +81,14 @@ import com.memoria.felipe.indoorlocation.Utils.Model.BeaconsDao;
 import com.memoria.felipe.indoorlocation.Utils.Model.DaoSession;
 import com.memoria.felipe.indoorlocation.Utils.Model.Fingerprint;
 import com.memoria.felipe.indoorlocation.Utils.Model.FingerprintDao;
+import com.memoria.felipe.indoorlocation.Utils.UtilsFunctions;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -170,7 +179,31 @@ public class MainActivity extends AppCompatActivity implements
         inferenceInterface.run(new String[] {OUTPUT_NODE});
         int[] resu = new int[2];
         inferenceInterface.fetch(OUTPUT_NODE,resu);
-        Log.e("Resultado", Integer.toString(resu.length));
+        //Log.e("Resultado", Integer.toString(resu.length));
+
+        try{
+            double [][] PCA = UtilsFunctions.readFromFileMatrix(2,8,"PCA.txt", this);
+            double [] vectorScale = UtilsFunctions.readFromFileVector(8,"scale.txt", this);
+            double [] vectorMean = UtilsFunctions.readFromFileVector(8,"mean.txt", this);
+            RealVector newRssi = new ArrayRealVector(new double[] { -66,-92,-84,-84,-92,-93,-98,-96}, false);
+            RealVectorFormat format = new RealVectorFormat();
+
+            Log.e("Scale", Arrays.toString(vectorScale));
+            Log.e("Mean", Arrays.toString(vectorMean));
+            Log.e("PCA", Arrays.deepToString(PCA));
+            RealMatrix PCAMatrix = MatrixUtils.createRealMatrix(PCA);
+            RealVector scaleVector = new ArrayRealVector(vectorScale, false);
+            RealVector meanVector = new ArrayRealVector(vectorMean, false);
+            RealVector minus = newRssi.subtract(meanVector);
+
+            RealVector response =  UtilsFunctions.scaleData(meanVector,scaleVector,newRssi);
+            Log.e("Respuesta", format.format(response));
+
+        }
+        catch (IOException ex){
+            ex.printStackTrace();
+        }
+
 
         daoSession = ((App) getApplication()).getDaoSession();
         beaconsDao = daoSession.getBeaconsDao();

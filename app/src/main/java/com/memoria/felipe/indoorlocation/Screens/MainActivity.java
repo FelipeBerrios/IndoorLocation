@@ -5,15 +5,14 @@ import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Typeface;
-import android.graphics.drawable.BitmapDrawable;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.net.Uri;
-import android.os.Debug;
 import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.design.widget.TabLayout;
@@ -50,27 +49,19 @@ import com.google.android.gms.maps.model.TileOverlayOptions;
 import com.kontakt.sdk.android.ble.configuration.ScanMode;
 import com.kontakt.sdk.android.ble.configuration.ScanPeriod;
 import com.kontakt.sdk.android.ble.connection.OnServiceReadyListener;
-import com.kontakt.sdk.android.ble.device.BeaconDevice;
-import com.kontakt.sdk.android.ble.device.EddystoneDevice;
-import com.kontakt.sdk.android.ble.filter.eddystone.EddystoneFilter;
 import com.kontakt.sdk.android.ble.manager.ProximityManager;
 import com.kontakt.sdk.android.ble.manager.ProximityManagerFactory;
 import com.kontakt.sdk.android.ble.manager.listeners.EddystoneListener;
-import com.kontakt.sdk.android.ble.manager.listeners.SecureProfileListener;
 import com.kontakt.sdk.android.ble.manager.listeners.simple.SimpleEddystoneListener;
-import com.kontakt.sdk.android.ble.manager.listeners.simple.SimpleSecureProfileListener;
 import com.kontakt.sdk.android.common.KontaktSDK;
-import com.kontakt.sdk.android.common.Proximity;
-import com.kontakt.sdk.android.common.model.Namespace;
 import com.kontakt.sdk.android.common.profile.IEddystoneDevice;
 import com.kontakt.sdk.android.common.profile.IEddystoneNamespace;
-import com.kontakt.sdk.android.common.profile.ISecureProfile;
-import com.kontakt.sdk.android.common.util.Constants;
 import com.memoria.felipe.indoorlocation.Fragments.OnlineFragment;
 import com.memoria.felipe.indoorlocation.Fragments.SettingsFragment;
 import com.memoria.felipe.indoorlocation.Utils.App;
 import com.memoria.felipe.indoorlocation.Utils.CustomBeacon;
 import com.memoria.felipe.indoorlocation.Utils.FragmentAdapterIndoor;
+import com.memoria.felipe.indoorlocation.Utils.KnnPorter;
 import com.memoria.felipe.indoorlocation.Utils.MapBoxOfflineTileProvider;
 import com.memoria.felipe.indoorlocation.Fragments.OfflineFragment;
 import com.memoria.felipe.indoorlocation.R;
@@ -81,6 +72,7 @@ import com.memoria.felipe.indoorlocation.Utils.Model.BeaconsDao;
 import com.memoria.felipe.indoorlocation.Utils.Model.DaoSession;
 import com.memoria.felipe.indoorlocation.Utils.Model.Fingerprint;
 import com.memoria.felipe.indoorlocation.Utils.Model.FingerprintDao;
+import com.memoria.felipe.indoorlocation.Utils.SVMPorter;
 import com.memoria.felipe.indoorlocation.Utils.UtilsFunctions;
 
 import java.io.File;
@@ -93,12 +85,11 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
+import java.util.Properties;
 
 import biz.laenger.android.vpbs.BottomSheetUtils;
 import biz.laenger.android.vpbs.ViewPagerBottomSheetBehavior;
 import java8.util.stream.Collectors;
-import java8.util.stream.Stream;
 import java8.util.stream.StreamSupport;
 
 public class MainActivity extends AppCompatActivity implements
@@ -141,6 +132,7 @@ public class MainActivity extends AppCompatActivity implements
     private Map<String, CustomBeacon> map = new HashMap<String, CustomBeacon>();
     private DaoSession daoSession;
     private BeaconsDao beaconsDao;
+    private FingerprintDao fingerprintDao;
 
     private ProgressDialog mProgressDialogScan;
     private int counter=0;
@@ -150,6 +142,17 @@ public class MainActivity extends AppCompatActivity implements
     private Boolean mcanStartTakeMeditions = false;
     private static Integer NUMBER_OF_MEDITIONS = 10;
     private static Integer INTERVAL_MEDITIONS = 350;
+    private double[] X_output;
+    private double[] Y_output;
+    private RealMatrix PCAMatrixTransform;
+    private RealMatrix PCAMatrix;
+    private RealMatrix originalScaled;
+    private RealVector scaleVector;
+    private RealVector meanVector;
+    RealVectorFormat format = new RealVectorFormat();
+    private double[][] svs;
+    private double[][] coeffs;
+    private int[] y_knn_original_x;
 
 
     @Override
@@ -164,6 +167,22 @@ public class MainActivity extends AppCompatActivity implements
         for(int i = 0;i<deviceSensors.size();i++){
             Log.e("Sensor", deviceSensors.get(i).toString());
         }
+
+        try{
+            Properties model = UtilsFunctions.load("app.properties", this);
+            //String[] dataSvs = UtilsFunctions.getData(model.getProperty("svs"));
+            //String[] dataCoeffs = UtilsFunctions.getData(model.getProperty("coeffs"));
+            //int N_svs = SVMPorter.getN_svs();
+            //svs = UtilsFunctions.convert(new double[N_svs][2], dataSvs);
+            //coeffs = UtilsFunctions.convert(new double[10][N_svs], dataCoeffs);
+            String[] dataKNNOriginalX = UtilsFunctions.getData(model.getProperty("y_original_X"));
+            y_knn_original_x = UtilsFunctions.convert(new int[6600], dataKNNOriginalX);
+
+        }
+        catch (IOException ex){
+            ex.printStackTrace();
+        }
+
 
         // Shared preferences
         SharedPreferences sharedPref = this.getSharedPreferences(
@@ -181,23 +200,31 @@ public class MainActivity extends AppCompatActivity implements
         inferenceInterface.fetch(OUTPUT_NODE,resu);
         //Log.e("Resultado", Integer.toString(resu.length));
 
+
         try{
-            double [][] PCA = UtilsFunctions.readFromFileMatrix(2,8,"PCA.txt", this);
+            double [][] PCA_transform = UtilsFunctions.readFromFileMatrix(4,8,"PCA_transform.txt", this);
+            double [][] PCA = UtilsFunctions.readFromFileMatrix(6600,4,"PCA.txt", this);
             double [] vectorScale = UtilsFunctions.readFromFileVector(8,"scale.txt", this);
             double [] vectorMean = UtilsFunctions.readFromFileVector(8,"mean.txt", this);
+            double [][] original_scaled = UtilsFunctions.readFromFileMatrix(6600,8,"original_scaled.txt", this);
             RealVector newRssi = new ArrayRealVector(new double[] { -66,-92,-84,-84,-92,-93,-98,-96}, false);
-            RealVectorFormat format = new RealVectorFormat();
+
 
             Log.e("Scale", Arrays.toString(vectorScale));
             Log.e("Mean", Arrays.toString(vectorMean));
-            Log.e("PCA", Arrays.deepToString(PCA));
-            RealMatrix PCAMatrix = MatrixUtils.createRealMatrix(PCA);
-            RealVector scaleVector = new ArrayRealVector(vectorScale, false);
-            RealVector meanVector = new ArrayRealVector(vectorMean, false);
+            Log.e("PCA", Arrays.deepToString(PCA_transform));
+            PCAMatrixTransform = MatrixUtils.createRealMatrix(PCA_transform);
+            PCAMatrix = MatrixUtils.createRealMatrix(PCA);
+            originalScaled = MatrixUtils.createRealMatrix(original_scaled);
+            scaleVector = new ArrayRealVector(vectorScale, false);
+            meanVector = new ArrayRealVector(vectorMean, false);
             RealVector minus = newRssi.subtract(meanVector);
 
             RealVector response =  UtilsFunctions.scaleData(meanVector,scaleVector,newRssi);
             Log.e("Respuesta", format.format(response));
+            Log.e("dimensiones matriz pca", String.valueOf(PCAMatrix.getRowDimension()) + String.valueOf(PCAMatrix.getColumnDimension()));
+            Log.e("dimensiones original", String.valueOf(originalScaled.getRowDimension()) + String.valueOf(originalScaled.getColumnDimension()));
+
 
         }
         catch (IOException ex){
@@ -207,6 +234,20 @@ public class MainActivity extends AppCompatActivity implements
 
         daoSession = ((App) getApplication()).getDaoSession();
         beaconsDao = daoSession.getBeaconsDao();
+        fingerprintDao = daoSession.getFingerprintDao();
+
+        List<Fingerprint> fingerprints = fingerprintDao.loadAll();
+        X_output = StreamSupport.stream(fingerprints).map(x->x.getXPosition()).mapToDouble(y->y).toArray();
+        RealVector xOutVector = MatrixUtils.createRealVector( X_output);
+        RealVector newRssi = new ArrayRealVector(new double[] { -101,-97,-92,-90,-96,-64,-91,-96}, false);
+        RealVector response =  UtilsFunctions.scaleData(meanVector,scaleVector,newRssi);
+        RealVector m = UtilsFunctions.PCATransform(PCAMatrixTransform, response);
+        Log.e("pca Aplicado", format.format(m));
+        int value = KnnPorter.predict(response.toArray(), originalScaled.getData(), y_knn_original_x);
+        Log.e("Porter", String.valueOf(value));
+        /*double svmpredict = SVMPorter.predict(m.toArray(), svs, coeffs);
+        Log.e("Porter", String.valueOf(svmpredict));*/
+
         mProgressDialogScan = new ProgressDialog(this);
         mProgressDialogScan.setCancelable(false);
         initProximityManager();

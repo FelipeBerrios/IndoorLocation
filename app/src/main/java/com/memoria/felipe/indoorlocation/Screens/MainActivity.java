@@ -61,6 +61,10 @@ import com.memoria.felipe.indoorlocation.Fragments.SettingsFragment;
 import com.memoria.felipe.indoorlocation.Utils.App;
 import com.memoria.felipe.indoorlocation.Utils.CustomBeacon;
 import com.memoria.felipe.indoorlocation.Utils.FragmentAdapterIndoor;
+import com.memoria.felipe.indoorlocation.Utils.KNN.KnnOriginalX;
+import com.memoria.felipe.indoorlocation.Utils.KNN.KnnOriginalY;
+import com.memoria.felipe.indoorlocation.Utils.KNN.KnnPCAX;
+import com.memoria.felipe.indoorlocation.Utils.KNN.KnnPCAY;
 import com.memoria.felipe.indoorlocation.Utils.KnnPorter;
 import com.memoria.felipe.indoorlocation.Utils.MapBoxOfflineTileProvider;
 import com.memoria.felipe.indoorlocation.Fragments.OfflineFragment;
@@ -72,6 +76,10 @@ import com.memoria.felipe.indoorlocation.Utils.Model.BeaconsDao;
 import com.memoria.felipe.indoorlocation.Utils.Model.DaoSession;
 import com.memoria.felipe.indoorlocation.Utils.Model.Fingerprint;
 import com.memoria.felipe.indoorlocation.Utils.Model.FingerprintDao;
+import com.memoria.felipe.indoorlocation.Utils.SVM.SVMOriginalX;
+import com.memoria.felipe.indoorlocation.Utils.SVM.SVMOriginalY;
+import com.memoria.felipe.indoorlocation.Utils.SVM.SVMPCAX;
+import com.memoria.felipe.indoorlocation.Utils.SVM.SVMPCAY;
 import com.memoria.felipe.indoorlocation.Utils.SVMPorter;
 import com.memoria.felipe.indoorlocation.Utils.UtilsFunctions;
 
@@ -150,9 +158,16 @@ public class MainActivity extends AppCompatActivity implements
     private RealVector scaleVector;
     private RealVector meanVector;
     RealVectorFormat format = new RealVectorFormat();
-    private double[][] svs;
-    private double[][] coeffs;
+    private double[][] svs_original_x;
+    private double[][] coeffs_original_x;
+    private double[][] svs_original_y;
+    private double[][] coeffs_original_y;
+    private double[][] svs_pca_x;
+    private double[][] coeffs_pca_x;
+    private double[][] svs_pca_y;
+    private double[][] coeffs_pca_y;
     private int[] y_knn_original_x;
+    private int[] y_knn_original_y;
 
 
     @Override
@@ -170,14 +185,33 @@ public class MainActivity extends AppCompatActivity implements
 
         try{
             Properties model = UtilsFunctions.load("app.properties", this);
-            //String[] dataSvs = UtilsFunctions.getData(model.getProperty("svs"));
-            //String[] dataCoeffs = UtilsFunctions.getData(model.getProperty("coeffs"));
-            //int N_svs = SVMPorter.getN_svs();
+            String[] dataSvs_original_x = UtilsFunctions.getData(model.getProperty("svs_original_x"));
+            String[] dataCoeffs_original_x = UtilsFunctions.getData(model.getProperty("coeffs_original_x"));
+            String[] dataSvs_original_y = UtilsFunctions.getData(model.getProperty("svs_original_y"));
+            String[] dataCoeffs_original_y = UtilsFunctions.getData(model.getProperty("coeffs_original_y"));
+            String[] dataSvs_pca_x = UtilsFunctions.getData(model.getProperty("svs_pca_x"));
+            String[] dataCoeffs_pca_x = UtilsFunctions.getData(model.getProperty("coeffs_pca_x"));
+            String[] dataSvs_pca_y = UtilsFunctions.getData(model.getProperty("svs_pca_y"));
+            String[] dataCoeffs_pca_y = UtilsFunctions.getData(model.getProperty("coeffs_pca_y"));
+            int N_svs_original_x = SVMOriginalX.getN_svs();
+            int N_svs_original_y = SVMOriginalY.getN_svs();
+            int N_svs_pca_x = SVMPCAX.getN_svs();
+            int N_svs_pca_y = SVMPCAY.getN_svs();
             //svs = UtilsFunctions.convert(new double[N_svs][2], dataSvs);
             //coeffs = UtilsFunctions.convert(new double[10][N_svs], dataCoeffs);
             String[] dataKNNOriginalX = UtilsFunctions.getData(model.getProperty("y_original_X"));
+            String[] dataKNNOriginalY = UtilsFunctions.getData(model.getProperty("y_original_Y"));
             y_knn_original_x = UtilsFunctions.convert(new int[6600], dataKNNOriginalX);
+            y_knn_original_y = UtilsFunctions.convert(new int[6600], dataKNNOriginalY);
 
+            svs_original_x = UtilsFunctions.convert(new double[N_svs_original_x][8], dataSvs_original_x);
+            coeffs_original_x = UtilsFunctions.convert(new double[10][N_svs_original_x], dataCoeffs_original_x);
+            svs_original_y = UtilsFunctions.convert(new double[N_svs_original_y][8], dataSvs_original_y);
+            coeffs_original_y = UtilsFunctions.convert(new double[3][N_svs_original_y], dataCoeffs_original_y);
+            svs_pca_x = UtilsFunctions.convert(new double[N_svs_pca_x][4], dataSvs_pca_x);
+            coeffs_pca_x = UtilsFunctions.convert(new double[10][N_svs_pca_x], dataCoeffs_pca_x);
+            svs_pca_y = UtilsFunctions.convert(new double[N_svs_pca_y][4], dataSvs_pca_y);
+            coeffs_pca_y = UtilsFunctions.convert(new double[3][N_svs_pca_y], dataCoeffs_pca_y);
         }
         catch (IOException ex){
             ex.printStackTrace();
@@ -243,8 +277,22 @@ public class MainActivity extends AppCompatActivity implements
         RealVector response =  UtilsFunctions.scaleData(meanVector,scaleVector,newRssi);
         RealVector m = UtilsFunctions.PCATransform(PCAMatrixTransform, response);
         Log.e("pca Aplicado", format.format(m));
-        int value = KnnPorter.predict(response.toArray(), originalScaled.getData(), y_knn_original_x);
-        Log.e("Porter", String.valueOf(value));
+        int valueKnnOX = KnnOriginalX.predict(response.toArray(), originalScaled.getData(), y_knn_original_x);
+        int valueKnnOY = KnnOriginalY.predict(response.toArray(), originalScaled.getData(), y_knn_original_y);
+        int valueKnnPCAX = KnnPCAX.predict(m.toArray(), PCAMatrix.getData(), y_knn_original_x);
+        int valueKnnPCAY = KnnPCAY.predict(m.toArray(), PCAMatrix.getData(), y_knn_original_y);
+        double valueSVMOX = SVMOriginalX.predict(response.toArray(), svs_original_x, coeffs_original_x);
+        double valueSVMOY = SVMOriginalY.predict(response.toArray(), svs_original_y, coeffs_original_y);
+        double valueSVMPCAX = SVMPCAX.predict(m.toArray(), svs_pca_x, coeffs_pca_x);
+        double valueSVMPCAY = SVMPCAY.predict(m.toArray(), svs_pca_y, coeffs_pca_y);
+        Log.e("KNN Original X", String.valueOf(valueKnnOX));
+        Log.e("KNN Original Y", String.valueOf(valueKnnOY));
+        Log.e("KNN PCA X", String.valueOf(valueKnnPCAX));
+        Log.e("KNN PCA Y", String.valueOf(valueKnnPCAY));
+        Log.e("SVM Original X", String.valueOf(valueSVMOX));
+        Log.e("SVM Original Y", String.valueOf(valueSVMOY));
+        Log.e("SVM PCA X", String.valueOf(valueSVMPCAX));
+        Log.e("SVM PCA Y", String.valueOf(valueSVMPCAY));
         /*double svmpredict = SVMPorter.predict(m.toArray(), svs, coeffs);
         Log.e("Porter", String.valueOf(svmpredict));*/
 

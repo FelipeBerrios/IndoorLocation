@@ -12,4 +12,14 @@
         <item>Sur</item>
     </string-array>
 
+
+    <string-array name="algorithms_array">
+        <item>KNN</item>
+        <item>KNN PCA</item>
+        <item>SVM</item>
+        <item>SVM PCA</item>
+        <item>NN</item>
+        <item>NN PCA</item>
+    </string-array>
+
 </resources>

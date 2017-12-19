@@ -4,16 +4,24 @@ import android.content.Context;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.Spinner;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import com.memoria.felipe.indoorlocation.R;
 
 /**
  * A simple {@link Fragment} subclass.
  * Activities that contain this fragment must implement the
- * {@link OnlineFragment.OnFragmentInteractionListener} interface
+ * {@link OnlineFragment.OnFragmentOnlineListener} interface
  * to handle interaction events.
  * Use the {@link OnlineFragment#newInstance} factory method to
  * create an instance of this fragment.
@@ -24,11 +32,22 @@ public class OnlineFragment extends Fragment {
     private static final String ARG_PARAM1 = "param1";
     private static final String ARG_PARAM2 = "param2";
 
+    private TextView mTextViewCoordX;
+    private TextView mTextViewCoordY;
+    private EditText mEditTextPosX;
+    private EditText mEditTextPosY;
+    private EditText mEditTextPatron;
+    private Button mButtonMakeScan;
+
+    private Double mXCoord;
+    private Double mYCoord;
+
     // TODO: Rename and change types of parameters
     private String mParam1;
     private String mParam2;
 
-    private OnFragmentInteractionListener mListener;
+    private OnFragmentOnlineListener mListener;
+    private Spinner mSpinnerAlgorithms;
 
     public OnlineFragment() {
         // Required empty public constructor
@@ -68,18 +87,145 @@ public class OnlineFragment extends Fragment {
         return inflater.inflate(R.layout.fragment_online, container, false);
     }
 
+    @Override
+    public void onViewCreated(View v, Bundle savedInstanceState) {
+        super.onViewCreated(v, savedInstanceState);
+
+        mTextViewCoordX = (TextView)getView().findViewById(R.id.tv_coordenada_x);
+        mTextViewCoordY = (TextView)getView().findViewById(R.id.tv_coordenada_y);
+        mEditTextPosX = (EditText)getView().findViewById(R.id.edit_text_patron_pos_x);
+        mEditTextPosY = (EditText)getView().findViewById(R.id.edit_text_patron_pos_y);
+        mEditTextPatron = (EditText)getView().findViewById(R.id.edit_text_patron);
+
+        mSpinnerAlgorithms = (Spinner) getView().findViewById(R.id.spinner_algorithms);
+        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(getActivity(),
+                R.array.algorithms_array, android.R.layout.simple_spinner_item);
+        // Specify the layout to use when the list of choices appears
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        // Apply the adapter to the spinner
+        mSpinnerAlgorithms.setAdapter(adapter);
+        mButtonMakeScan = (Button)getView().findViewById(R.id.make_scan_button);
+
+        mEditTextPosX.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                UpdateCoordTextView();
+            }
+        });
+        mEditTextPosY.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                UpdateCoordTextView();
+            }
+        });
+        mEditTextPatron.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                UpdateCoordTextView();
+            }
+        });
+
+        mButtonMakeScan.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String xString = mEditTextPosX.getText().toString();
+                String yString = mEditTextPosY.getText().toString();
+                String patronString  = mEditTextPatron.getText().toString();
+                //Integer orientation = mSpinnerOrientation.getSelectedItemPosition();
+                if(mXCoord!=null && mYCoord!=null /*&&
+                        orientation!= AdapterView.INVALID_POSITION*/ ){
+                    //mListener.onGetFingerprint(mXCoord,mYCoord);
+                }
+                else{
+                    Toast.makeText(getActivity().getApplicationContext(),
+                            "Debes llenar los campos corrctamente", Toast.LENGTH_SHORT).show();
+                }
+
+            }
+        });
+    }
+
+    public void UpdateCoordTextView(){
+
+        String xText = mEditTextPosX.getText().toString();
+        String yText = mEditTextPosY.getText().toString();
+        String patronText = mEditTextPatron.getText().toString();
+
+        try{
+            if(!xText.equals("") && !yText.equals("") && !patronText.equals("")){
+                Double x  = Double.parseDouble(xText);
+                Double y  = Double.parseDouble(yText);
+                Double patron  = Double.parseDouble(patronText);
+
+                if(patron !=0.0 ){
+                    mXCoord = patron*x - patron/2;
+                    mYCoord = patron*y - patron/2;
+                    mTextViewCoordX.setText("Coord X: " + String.valueOf(mXCoord));
+                    mTextViewCoordY.setText("Coord Y: " + String.valueOf(mYCoord));
+                }
+                else{
+                    Toast.makeText(getActivity().getApplicationContext()
+                            ,"Debes Ingresar un Patron distinto de cero", Toast.LENGTH_SHORT).show();
+                }
+            }else{
+                mXCoord = null;
+                mYCoord = null;
+            }
+        }
+        catch (NumberFormatException e){
+            e.printStackTrace();
+            mXCoord = null;
+            mYCoord = null;
+            mTextViewCoordX.setText("Coord X: ");
+            mTextViewCoordY.setText("Coord Y: ");
+        }
+
+
+
+    }
+
     // TODO: Rename method, update argument and hook method into UI event
     public void onButtonPressed(Uri uri) {
         if (mListener != null) {
-            mListener.onFragmentInteraction(uri);
+            //mListener.onFragmentInteraction(uri);
         }
     }
 
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
-        if (context instanceof OnFragmentInteractionListener) {
-            mListener = (OnFragmentInteractionListener) context;
+        if (context instanceof OnFragmentOnlineListener) {
+            mListener = (OnFragmentOnlineListener) context;
         } else {
             throw new RuntimeException(context.toString()
                     + " must implement OnFragmentInteractionListener");
@@ -102,8 +248,9 @@ public class OnlineFragment extends Fragment {
      * "http://developer.android.com/training/basics/fragments/communicating.html"
      * >Communicating with Other Fragments</a> for more information.
      */
-    public interface OnFragmentInteractionListener {
+    public interface OnFragmentOnlineListener {
         // TODO: Update argument type and name
-        void onFragmentInteraction(Uri uri);
+        // mode: 0 knn, 1: svm, 2 nn
+        void getStaticPositionEstimation(int mode, boolean pca, Double xCoord, Double yCoord);
     }
 }

@@ -91,6 +91,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -102,14 +103,14 @@ import java8.util.stream.StreamSupport;
 
 public class MainActivity extends AppCompatActivity implements
         OnMapReadyCallback, OfflineFragment.OnFragmentOfflineListener,
-        OnlineFragment.OnFragmentInteractionListener, SettingsFragment.OnFragmentInteractionListener{
+        OnlineFragment.OnFragmentOnlineListener, SettingsFragment.OnFragmentInteractionListener{
 
 
     // Usados por libreria tensorflow
     static {
         System.loadLibrary("tensorflow_inference");
     }
-    private static final String MODEL_FILE = "file:///android_asset/optimized_svmX.pb";
+    private static final String MODEL_FILE = "file:///android_asset/optimized_NN.pb";
     private static final String INPUT_NODE = "I";
     private static final String OUTPUT_NODE = "O";
     private TensorFlowInferenceInterface inferenceInterface;
@@ -226,13 +227,14 @@ public class MainActivity extends AppCompatActivity implements
         INTERVAL_MEDITIONS = sharedPref.getInt("Intervalo_Mediciones", 350);
 
         inferenceInterface = new TensorFlowInferenceInterface(getAssets(), MODEL_FILE);
-        float[] inputFloats = {-1.14105447f, -0.28410435f, -0.58953805f,  0.67933756f};
+        float[] inputFloats = {2.80714798f, -0.36167914f, -1.0649991f,   4.10078526f, -0.44053763f,  0.52955198f
+                ,  0.41685054f,  1.31442308f};
 
-        inferenceInterface.feed(INPUT_NODE, inputFloats, 1,4);
+        inferenceInterface.feed(INPUT_NODE, inputFloats, 1,8);
         inferenceInterface.run(new String[] {OUTPUT_NODE});
         int[] resu = new int[2];
         inferenceInterface.fetch(OUTPUT_NODE,resu);
-        //Log.e("Resultado", Integer.toString(resu.length));
+        Log.e("Resultado", Arrays.toString(resu));
 
 
         try{
@@ -604,6 +606,69 @@ public class MainActivity extends AppCompatActivity implements
         };
     }
 
+    private EddystoneListener createEddystoneListenerOnline(int mode) {
+        return new SimpleEddystoneListener() {
+            @Override
+            public void onEddystonesUpdated(List<IEddystoneDevice> eddystones, IEddystoneNamespace namespace) {
+                if(mode == 1){
+                    Log.i(TAG, "onEddystonesUpdated: " + eddystones.size());
+                    for(int i= 0; i<eddystones.size(); i++){
+                        Log.i(TAG, "onEddystoneUpdate: " + eddystones.get(i).toString());
+                    }
+
+                    try{
+                        List<Beacons> beaconses = beaconsDao.loadAll();
+                        List<String> allUniqueId = StreamSupport.stream(beaconses)
+                                .map(x->x.getUniqueId()).collect(Collectors.toList());
+                        HashMap<Integer, Float> mapBeacons = new LinkedHashMap<Integer, Float>();
+                        List<String> idIn = new ArrayList<String>();
+                        for(int i= 0; i<eddystones.size(); i++){
+                            String macBeacon;
+                            IEddystoneDevice actualEddystone = eddystones.get(i);
+                            if(actualEddystone.getUniqueId()!=null){
+                                macBeacon = actualEddystone.getAddress();
+                            }
+                            else{
+                                macBeacon = map.get(actualEddystone.getInstanceId()).getMAC();
+                            }
+                            Beacons beacons = beaconsDao.queryBuilder()
+                                    .where(BeaconsDao.Properties.MAC.eq(macBeacon)).unique();
+
+                            if(beacons!=null){
+                                String actualUniqueId = beacons.getUniqueId();
+                                int elementPosition = allUniqueId.indexOf(actualUniqueId);
+
+                                if(elementPosition!=-1){
+                                    mapBeacons.put(elementPosition,(float)actualEddystone.getRssi());
+                                    idIn.add(actualUniqueId);
+                                }
+                            }
+                        }
+
+                        List<Beacons> beaconsNotIn = beaconsDao.queryBuilder()
+                                .where(BeaconsDao.Properties.UniqueId.notIn(idIn)).list();
+
+                        List<String> uniqueIdNotIn = StreamSupport.stream(beaconsNotIn)
+                                .map(x->x.getUniqueId()).collect(Collectors.toList());
+
+                        for(int j =0; j<uniqueIdNotIn.size();j++){
+                            int elementPosition = allUniqueId.indexOf(uniqueIdNotIn.get(j));
+                            if(elementPosition!=-1) {
+                                mapBeacons.put(elementPosition, 100f);
+                            }
+                        }
+
+                    }
+                    catch (Exception ex){
+                        ex.printStackTrace();
+                    }
+
+                }
+
+            }
+        };
+    }
+
     //Since Android Marshmallow starting a Bluetooth Low Energy scan requires permission from location group.
     private void checkPermissions() {
         int checkSelfPermissionResult = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION);
@@ -632,7 +697,7 @@ public class MainActivity extends AppCompatActivity implements
         mTabLayoutBottom = (TabLayout) findViewById(R.id.bottom_sheet_tabs);
         mViewPagerBottom = (ViewPager)findViewById(R.id.bottom_sheet_viewpager);
 
-        mViewPagerBottom.setOffscreenPageLimit(1);
+        mViewPagerBottom.setOffscreenPageLimit(3);
         mViewPagerBottom.setAdapter(new FragmentAdapterIndoor(getSupportFragmentManager(),
                 MainActivity.this));
         mTabLayoutBottom.setupWithViewPager(mViewPagerBottom);
@@ -836,10 +901,10 @@ public class MainActivity extends AppCompatActivity implements
         }
     }
 
-    @Override
+    /*@Override
     public void onFragmentInteraction(Uri uri) {
 
-    }
+    }*/
 
     private void startScanning(int mode) {
         //Connect to scanning service and start scanning when ready
@@ -977,6 +1042,15 @@ public class MainActivity extends AppCompatActivity implements
         catch (Exception e){
             e.printStackTrace();
         }
+
+    }
+
+    @Override
+    public void getStaticPositionEstimation(int mode, boolean pca, Double xCoord, Double yCoord) {
+
+        // En primer lugar se escalan los datos
+
+
 
     }
 }

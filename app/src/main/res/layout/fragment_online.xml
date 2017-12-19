@@ -2,12 +2,112 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.memoria.felipe.indoorlocation.Fragments.OnlineFragment">
+    tools:context="com.memoria.felipe.indoorlocation.Fragments.OnlineFragment"
+    android:padding="16dp">
 
     <!-- TODO: Update blank fragment layout -->
-    <TextView
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:text="@string/hello_blank_fragment" />
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Iniciar Pruebas"
+            android:textSize="24sp"
+            android:layout_marginBottom="16dp"/>
+
+        <Spinner
+            android:id="@+id/spinner_algorithms"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"/>
+
+        <LinearLayout
+            android:id = "@+id/linear_layout_patron"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="8dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <android.support.design.widget.TextInputLayout
+                    android:layout_width="72dp"
+                    android:layout_height="wrap_content">
+
+                    <EditText
+                        android:id="@+id/edit_text_patron"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Patron"
+                        android:inputType="numberDecimal"/>
+
+                </android.support.design.widget.TextInputLayout>
+
+                <android.support.design.widget.TextInputLayout
+                    android:layout_width="48dp"
+                    android:layout_height="wrap_content">
+
+                    <EditText
+                        android:id="@+id/edit_text_patron_pos_x"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="X"
+                        android:inputType="numberDecimal"/>
+
+                </android.support.design.widget.TextInputLayout>
+
+                <android.support.design.widget.TextInputLayout
+                    android:layout_width="48dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp">
+
+                    <EditText
+                        android:id="@+id/edit_text_patron_pos_y"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Y"
+                        android:inputType="numberDecimal"/>
+
+                </android.support.design.widget.TextInputLayout>
+
+                <Button
+                    android:id="@+id/make_scan_button"
+                    android:text = "Iniciar"
+                    android:backgroundTint="@color/colorAccent"
+                    android:textColor="#fff"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id = "@+id/tv_coordenada_x"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Coordenada x: "
+                    android:layout_marginEnd="8dp"/>
+
+                <TextView
+                    android:id = "@+id/tv_coordenada_y"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Coordenada y: "/>
+
+            </LinearLayout>
+        </LinearLayout>
+
+    </LinearLayout>
 
 </FrameLayout>

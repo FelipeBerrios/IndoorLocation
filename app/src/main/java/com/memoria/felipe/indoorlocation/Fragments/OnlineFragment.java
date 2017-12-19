@@ -1,9 +1,11 @@
 package com.memoria.felipe.indoorlocation.Fragments;
 
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
+import android.support.v4.content.ContextCompat;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
@@ -38,6 +40,7 @@ public class OnlineFragment extends Fragment {
     private EditText mEditTextPosY;
     private EditText mEditTextPatron;
     private Button mButtonMakeScan;
+    private boolean isButtonScanning = false;
 
     private Double mXCoord;
     private Double mYCoord;
@@ -158,17 +161,53 @@ public class OnlineFragment extends Fragment {
         mButtonMakeScan.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                if(isButtonScanning){
+                    mButtonMakeScan.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.colorAccent)));
+                    mButtonMakeScan.setText("Iniciar");
+                    isButtonScanning = false;
+                    mListener.stopStaticPositionEstimation();
+                    return;
+                }
                 String xString = mEditTextPosX.getText().toString();
                 String yString = mEditTextPosY.getText().toString();
                 String patronString  = mEditTextPatron.getText().toString();
-                //Integer orientation = mSpinnerOrientation.getSelectedItemPosition();
-                if(mXCoord!=null && mYCoord!=null /*&&
-                        orientation!= AdapterView.INVALID_POSITION*/ ){
-                    //mListener.onGetFingerprint(mXCoord,mYCoord);
+                int positionAlgorithm = mSpinnerAlgorithms.getSelectedItemPosition();
+                int positionMode = 0;
+                boolean pca =  false;
+                if(positionAlgorithm ==0){
+                    positionMode =0;
+                    pca = false;
+                }
+                else if(positionAlgorithm ==1){
+                    positionMode =0;
+                    pca = true;
+                }
+                if(positionAlgorithm ==2){
+                    positionMode =1;
+                    pca = false;
+                }
+                else if(positionAlgorithm ==3){
+                    positionMode =1;
+                    pca = true;
+                }
+                if(positionAlgorithm ==4){
+                    positionMode =2;
+                    pca = false;
+                }
+                else if(positionAlgorithm ==5){
+                    positionMode =2;
+                    pca = true;
+                }
+
+                if(mXCoord!=null && mYCoord!=null  ){
+                    isButtonScanning = true;
+                    mButtonMakeScan.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.red_material)));
+                    mButtonMakeScan.setText("Detener");
+                    mListener.getStaticPositionEstimation(positionMode, pca, mXCoord,mYCoord);
                 }
                 else{
                     Toast.makeText(getActivity().getApplicationContext(),
-                            "Debes llenar los campos corrctamente", Toast.LENGTH_SHORT).show();
+                            "Debes llenar los campos correctamente", Toast.LENGTH_SHORT).show();
                 }
 
             }
@@ -210,8 +249,6 @@ public class OnlineFragment extends Fragment {
             mTextViewCoordY.setText("Coord Y: ");
         }
 
-
-
     }
 
     // TODO: Rename method, update argument and hook method into UI event
@@ -252,5 +289,6 @@ public class OnlineFragment extends Fragment {
         // TODO: Update argument type and name
         // mode: 0 knn, 1: svm, 2 nn
         void getStaticPositionEstimation(int mode, boolean pca, Double xCoord, Double yCoord);
+        void stopStaticPositionEstimation();
     }
 }

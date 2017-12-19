@@ -89,6 +89,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -114,10 +115,9 @@ public class MainActivity extends AppCompatActivity implements
     private static final String INPUT_NODE = "I";
     private static final String OUTPUT_NODE = "O";
     private TensorFlowInferenceInterface inferenceInterface;
+    private TensorFlowInferenceInterface inferenceInterfacePCA;
     private SensorManager mSensorManager;
     private HashMap<Marker,LatLng> markers = new HashMap<Marker,LatLng>();
-
-    private static final int[] INPUT_SIZE = {1,4};
 
     private LinearLayout mLinearBotomSheet;
     private ViewPagerBottomSheetBehavior mBottomBehavior;
@@ -144,15 +144,19 @@ public class MainActivity extends AppCompatActivity implements
     private FingerprintDao fingerprintDao;
 
     private ProgressDialog mProgressDialogScan;
+    private ProgressDialog mProgressDialogOnline;
     private int counter=0;
     private Double ActualXPosition;
     private Double ActualYPosition;
+    private Double mXPositionOnlineStatic;
+    private Double mYPositionOnlineStatic;
+    private boolean mPCAActive = false;
+    // modo algoritmo: 0-knn, 1-svm, 2-nn
+    private int mModeAlgorithm = 0;
     //private Integer ActualOrientation;
     private Boolean mcanStartTakeMeditions = false;
     private static Integer NUMBER_OF_MEDITIONS = 10;
     private static Integer INTERVAL_MEDITIONS = 350;
-    private double[] X_output;
-    private double[] Y_output;
     private RealMatrix PCAMatrixTransform;
     private RealMatrix PCAMatrix;
     private RealMatrix originalScaled;
@@ -169,6 +173,8 @@ public class MainActivity extends AppCompatActivity implements
     private double[][] coeffs_pca_y;
     private int[] y_knn_original_x;
     private int[] y_knn_original_y;
+    private List<Double> mAgrupacionX = new ArrayList<Double>();
+    private List<Double> mAgrupacionY = new ArrayList<Double>();
 
 
     @Override
@@ -227,15 +233,6 @@ public class MainActivity extends AppCompatActivity implements
         INTERVAL_MEDITIONS = sharedPref.getInt("Intervalo_Mediciones", 350);
 
         inferenceInterface = new TensorFlowInferenceInterface(getAssets(), MODEL_FILE);
-        float[] inputFloats = {2.80714798f, -0.36167914f, -1.0649991f,   4.10078526f, -0.44053763f,  0.52955198f
-                ,  0.41685054f,  1.31442308f};
-
-        inferenceInterface.feed(INPUT_NODE, inputFloats, 1,8);
-        inferenceInterface.run(new String[] {OUTPUT_NODE});
-        int[] resu = new int[2];
-        inferenceInterface.fetch(OUTPUT_NODE,resu);
-        Log.e("Resultado", Arrays.toString(resu));
-
 
         try{
             double [][] PCA_transform = UtilsFunctions.readFromFileMatrix(4,8,"PCA_transform.txt", this);
@@ -246,9 +243,9 @@ public class MainActivity extends AppCompatActivity implements
             RealVector newRssi = new ArrayRealVector(new double[] { -66,-92,-84,-84,-92,-93,-98,-96}, false);
 
 
-            Log.e("Scale", Arrays.toString(vectorScale));
+            /*Log.e("Scale", Arrays.toString(vectorScale));
             Log.e("Mean", Arrays.toString(vectorMean));
-            Log.e("PCA", Arrays.deepToString(PCA_transform));
+            Log.e("PCA", Arrays.deepToString(PCA_transform));*/
             PCAMatrixTransform = MatrixUtils.createRealMatrix(PCA_transform);
             PCAMatrix = MatrixUtils.createRealMatrix(PCA);
             originalScaled = MatrixUtils.createRealMatrix(original_scaled);
@@ -256,38 +253,18 @@ public class MainActivity extends AppCompatActivity implements
             meanVector = new ArrayRealVector(vectorMean, false);
             RealVector minus = newRssi.subtract(meanVector);
 
-            RealVector response =  UtilsFunctions.scaleData(meanVector,scaleVector,newRssi);
-            Log.e("Respuesta", format.format(response));
-            Log.e("dimensiones matriz pca", String.valueOf(PCAMatrix.getRowDimension()) + String.valueOf(PCAMatrix.getColumnDimension()));
-            Log.e("dimensiones original", String.valueOf(originalScaled.getRowDimension()) + String.valueOf(originalScaled.getColumnDimension()));
-
+            //RealVector response =  UtilsFunctions.scaleData(meanVector,scaleVector,newRssi);
+            //Log.e("Respuesta", format.format(response));
 
         }
         catch (IOException ex){
             ex.printStackTrace();
         }
 
-
         daoSession = ((App) getApplication()).getDaoSession();
         beaconsDao = daoSession.getBeaconsDao();
         fingerprintDao = daoSession.getFingerprintDao();
-
-        List<Fingerprint> fingerprints = fingerprintDao.loadAll();
-        X_output = StreamSupport.stream(fingerprints).map(x->x.getXPosition()).mapToDouble(y->y).toArray();
-        RealVector xOutVector = MatrixUtils.createRealVector( X_output);
-        RealVector newRssi = new ArrayRealVector(new double[] { -101,-97,-92,-90,-96,-64,-91,-96}, false);
-        RealVector response =  UtilsFunctions.scaleData(meanVector,scaleVector,newRssi);
-        RealVector m = UtilsFunctions.PCATransform(PCAMatrixTransform, response);
-        Log.e("pca Aplicado", format.format(m));
-        int valueKnnOX = KnnOriginalX.predict(response.toArray(), originalScaled.getData(), y_knn_original_x);
-        int valueKnnOY = KnnOriginalY.predict(response.toArray(), originalScaled.getData(), y_knn_original_y);
-        int valueKnnPCAX = KnnPCAX.predict(m.toArray(), PCAMatrix.getData(), y_knn_original_x);
-        int valueKnnPCAY = KnnPCAY.predict(m.toArray(), PCAMatrix.getData(), y_knn_original_y);
-        double valueSVMOX = SVMOriginalX.predict(response.toArray(), svs_original_x, coeffs_original_x);
-        double valueSVMOY = SVMOriginalY.predict(response.toArray(), svs_original_y, coeffs_original_y);
-        double valueSVMPCAX = SVMPCAX.predict(m.toArray(), svs_pca_x, coeffs_pca_x);
-        double valueSVMPCAY = SVMPCAY.predict(m.toArray(), svs_pca_y, coeffs_pca_y);
-        Log.e("KNN Original X", String.valueOf(valueKnnOX));
+        /*Log.e("KNN Original X", String.valueOf(valueKnnOX));
         Log.e("KNN Original Y", String.valueOf(valueKnnOY));
         Log.e("KNN PCA X", String.valueOf(valueKnnPCAX));
         Log.e("KNN PCA Y", String.valueOf(valueKnnPCAY));
@@ -295,10 +272,13 @@ public class MainActivity extends AppCompatActivity implements
         Log.e("SVM Original Y", String.valueOf(valueSVMOY));
         Log.e("SVM PCA X", String.valueOf(valueSVMPCAX));
         Log.e("SVM PCA Y", String.valueOf(valueSVMPCAY));
-        /*double svmpredict = SVMPorter.predict(m.toArray(), svs, coeffs);
+        double svmpredict = SVMPorter.predict(m.toArray(), svs, coeffs);
         Log.e("Porter", String.valueOf(svmpredict));*/
 
         mProgressDialogScan = new ProgressDialog(this);
+        mProgressDialogOnline =  new ProgressDialog(this);
+        mProgressDialogOnline.setIndeterminate(true);
+        mProgressDialogOnline.setCancelable(false);
         mProgressDialogScan.setCancelable(false);
         initProximityManager();
         setupBottomSheet();
@@ -617,46 +597,57 @@ public class MainActivity extends AppCompatActivity implements
                     }
 
                     try{
-                        List<Beacons> beaconses = beaconsDao.loadAll();
-                        List<String> allUniqueId = StreamSupport.stream(beaconses)
-                                .map(x->x.getUniqueId()).collect(Collectors.toList());
-                        HashMap<Integer, Float> mapBeacons = new LinkedHashMap<Integer, Float>();
-                        List<String> idIn = new ArrayList<String>();
-                        for(int i= 0; i<eddystones.size(); i++){
-                            String macBeacon;
-                            IEddystoneDevice actualEddystone = eddystones.get(i);
-                            if(actualEddystone.getUniqueId()!=null){
-                                macBeacon = actualEddystone.getAddress();
-                            }
-                            else{
-                                macBeacon = map.get(actualEddystone.getInstanceId()).getMAC();
-                            }
-                            Beacons beacons = beaconsDao.queryBuilder()
-                                    .where(BeaconsDao.Properties.MAC.eq(macBeacon)).unique();
+                        if(mcanStartTakeMeditions){
+                            List<Beacons> beaconses = beaconsDao.loadAll();
+                            List<String> allUniqueId = StreamSupport.stream(beaconses)
+                                    .map(x->x.getUniqueId()).collect(Collectors.toList());
+                            HashMap<Integer, Double> mapBeacons = new LinkedHashMap<Integer, Double>();
+                            List<String> idIn = new ArrayList<String>();
+                            for(int i= 0; i<eddystones.size(); i++){
+                                String macBeacon;
+                                IEddystoneDevice actualEddystone = eddystones.get(i);
+                                if(actualEddystone.getUniqueId()!=null){
+                                    macBeacon = actualEddystone.getAddress();
+                                }
+                                else{
+                                    macBeacon = map.get(actualEddystone.getInstanceId()).getMAC();
+                                }
+                                Beacons beacons = beaconsDao.queryBuilder()
+                                        .where(BeaconsDao.Properties.MAC.eq(macBeacon)).unique();
 
-                            if(beacons!=null){
-                                String actualUniqueId = beacons.getUniqueId();
-                                int elementPosition = allUniqueId.indexOf(actualUniqueId);
+                                if(beacons!=null){
+                                    String actualUniqueId = beacons.getUniqueId();
+                                    int elementPosition = allUniqueId.indexOf(actualUniqueId);
 
-                                if(elementPosition!=-1){
-                                    mapBeacons.put(elementPosition,(float)actualEddystone.getRssi());
-                                    idIn.add(actualUniqueId);
+                                    if(elementPosition!=-1){
+                                        mapBeacons.put(elementPosition,(double)actualEddystone.getRssi());
+                                        idIn.add(actualUniqueId);
+                                    }
                                 }
                             }
-                        }
 
-                        List<Beacons> beaconsNotIn = beaconsDao.queryBuilder()
-                                .where(BeaconsDao.Properties.UniqueId.notIn(idIn)).list();
+                            List<Beacons> beaconsNotIn = beaconsDao.queryBuilder()
+                                    .where(BeaconsDao.Properties.UniqueId.notIn(idIn)).list();
 
-                        List<String> uniqueIdNotIn = StreamSupport.stream(beaconsNotIn)
-                                .map(x->x.getUniqueId()).collect(Collectors.toList());
+                            List<String> uniqueIdNotIn = StreamSupport.stream(beaconsNotIn)
+                                    .map(x->x.getUniqueId()).collect(Collectors.toList());
 
-                        for(int j =0; j<uniqueIdNotIn.size();j++){
-                            int elementPosition = allUniqueId.indexOf(uniqueIdNotIn.get(j));
-                            if(elementPosition!=-1) {
-                                mapBeacons.put(elementPosition, 100f);
+                            for(int j =0; j<uniqueIdNotIn.size();j++){
+                                int elementPosition = allUniqueId.indexOf(uniqueIdNotIn.get(j));
+                                if(elementPosition!=-1) {
+                                    mapBeacons.put(elementPosition, 100d);
+                                }
                             }
+
+                            double[] finalArray = new double[beaconses.size()];
+                            for(int k =0; k<mapBeacons.size(); k++){
+                                finalArray[k] = mapBeacons.get(k);
+                            }
+
+                            Log.e("Arreglo actual", Arrays.toString(finalArray));
+                            calculatePosition(finalArray);
                         }
+
 
                     }
                     catch (Exception ex){
@@ -928,12 +919,93 @@ public class MainActivity extends AppCompatActivity implements
         });
     }
 
+    private void startScanningOnline(int mode){
+        proximityManager.connect(new OnServiceReadyListener() {
+            @Override
+            public void onServiceReady() {
+                //Check if proximity manager is already scanning
+                if (proximityManager.isScanning()) {
+                    Toast.makeText(MainActivity.this, "Ya esta escaneando", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                proximityManager.setEddystoneListener(createEddystoneListenerOnline(mode));
+                proximityManager.startScanning();
+                Toast.makeText(MainActivity.this, "Escaneando...", Toast.LENGTH_SHORT).show();
+
+            }
+        });
+    }
+
     private void stopScanning() {
         //Stop scanning if scanning is in progress
         if (proximityManager.isScanning()) {
             proximityManager.stopScanning();
             Toast.makeText(this, "Escaneo detenido", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    public List<Double> calculatePosition(double[] arregloRssi){
+
+        List<Double> coordenadas = new ArrayList<Double>();
+        RealVector newRssi = new ArrayRealVector(arregloRssi, false);
+        RealVector scaledInput =  UtilsFunctions.scaleData(meanVector,scaleVector,newRssi);
+        RealVector pcaInput = null;
+
+        if(mPCAActive){
+            pcaInput = UtilsFunctions.PCATransform(PCAMatrixTransform, scaledInput);
+        }
+
+        if(mModeAlgorithm==0){
+
+            if(!mPCAActive){
+                int valueKnnOX = KnnOriginalX.predict(scaledInput.toArray(), originalScaled.getData(), y_knn_original_x);
+                int valueKnnOY = KnnOriginalY.predict(scaledInput.toArray(), originalScaled.getData(), y_knn_original_y);
+                Log.e("Resultado KNN", mAgrupacionX.get(valueKnnOX).toString() + " " + mAgrupacionY.get(valueKnnOY).toString());
+            }
+            else{
+                int valueKnnPCAX = KnnPCAX.predict(pcaInput.toArray(), PCAMatrix.getData(), y_knn_original_x);
+                int valueKnnPCAY = KnnPCAY.predict(pcaInput.toArray(), PCAMatrix.getData(), y_knn_original_y);
+            }
+
+        }
+        else if(mModeAlgorithm ==1){
+
+            if(!mPCAActive){
+                double valueSVMOX = SVMOriginalX.predict(scaledInput.toArray(), svs_original_x, coeffs_original_x);
+                double valueSVMOY = SVMOriginalY.predict(scaledInput.toArray(), svs_original_y, coeffs_original_y);
+            }
+            else{
+                double valueSVMPCAX = SVMPCAX.predict(pcaInput.toArray(), svs_pca_x, coeffs_pca_x);
+                double valueSVMPCAY = SVMPCAY.predict(pcaInput.toArray(), svs_pca_y, coeffs_pca_y);
+            }
+        }
+        else{
+            float[] arrayRssiFloat = new float[arregloRssi.length];
+            for (int i = 0 ; i < arregloRssi.length; i++)
+            {
+                arrayRssiFloat[i] = (float) arregloRssi[i];
+            }
+
+            if(!mPCAActive){
+                inferenceInterface.feed(INPUT_NODE, arrayRssiFloat, 1,8);
+                inferenceInterface.run(new String[] {OUTPUT_NODE});
+                int[] resu = new int[2];
+                inferenceInterface.fetch(OUTPUT_NODE,resu);
+                //Log.e("Resultado", Arrays.toString(resu));
+            }
+            else{
+                double valueSVMPCAX = SVMPCAX.predict(pcaInput.toArray(), svs_pca_x, coeffs_pca_x);
+                double valueSVMPCAY = SVMPCAY.predict(pcaInput.toArray(), svs_pca_y, coeffs_pca_y);
+            }
+
+        }
+
+        //Log.e("pca Aplicado", format.format(pcaInput));
+
+        // Se escalan los datos
+        return coordenadas;
+
     }
 
     @Override
@@ -1048,9 +1120,39 @@ public class MainActivity extends AppCompatActivity implements
     @Override
     public void getStaticPositionEstimation(int mode, boolean pca, Double xCoord, Double yCoord) {
 
-        // En primer lugar se escalan los datos
+        mProgressDialogOnline.setTitle("Iniciando Online");
+        mProgressDialogOnline.setMessage("Conectando...");
+        mProgressDialogOnline.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+        mProgressDialogOnline.show();
+        mXPositionOnlineStatic = xCoord;
+        mYPositionOnlineStatic = yCoord;
+        mModeAlgorithm = mode;
+        mPCAActive = pca;
+        startScanningOnline(1);
+        List<Fingerprint> fingerprints = fingerprintDao.loadAll();
+        Map<Double, List<Fingerprint>> unorderedX = StreamSupport.stream(fingerprints)
+                .collect(Collectors.groupingBy(x->x.getXPosition()));
 
+        mAgrupacionX = StreamSupport.stream(unorderedX.keySet()).sorted().collect(Collectors.toList());
 
+        Map<Double, List<Fingerprint>> unorderedY = StreamSupport.stream(fingerprints)
+                .collect(Collectors.groupingBy(x->x.getYPosition()));
 
+        mAgrupacionY = StreamSupport.stream(unorderedY.keySet()).sorted().collect(Collectors.toList());
+
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                mProgressDialogOnline.dismiss();
+                mcanStartTakeMeditions = true;
+            }
+        }, 5000);
+    }
+
+    @Override
+    public void stopStaticPositionEstimation(){
+        mProgressDialogOnline.dismiss();
+        stopScanning();
+        mcanStartTakeMeditions = false;
     }
 }

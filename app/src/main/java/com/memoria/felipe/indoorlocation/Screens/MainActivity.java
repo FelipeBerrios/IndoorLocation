@@ -22,6 +22,7 @@ import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.util.Pair;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -84,6 +85,7 @@ import com.memoria.felipe.indoorlocation.Utils.SVMPorter;
 import com.memoria.felipe.indoorlocation.Utils.UtilsFunctions;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -112,8 +114,11 @@ public class MainActivity extends AppCompatActivity implements
         System.loadLibrary("tensorflow_inference");
     }
     private static final String MODEL_FILE = "file:///android_asset/optimized_NN.pb";
+    private static final String MODEL_FILE_PCA = "file:///android_asset/optimized_NN_PCA.pb";
     private static final String INPUT_NODE = "I";
     private static final String OUTPUT_NODE = "O";
+    private static final String INPUT_NODE_PCA = "I";
+    private static final String OUTPUT_NODE_PCA = "O";
     private TensorFlowInferenceInterface inferenceInterface;
     private TensorFlowInferenceInterface inferenceInterfacePCA;
     private SensorManager mSensorManager;
@@ -175,6 +180,21 @@ public class MainActivity extends AppCompatActivity implements
     private int[] y_knn_original_y;
     private List<Double> mAgrupacionX = new ArrayList<Double>();
     private List<Double> mAgrupacionY = new ArrayList<Double>();
+    private FileOutputStream streamDataStatic;
+
+    // Variables para imprimir en archivos
+    private List<String> KNN_ORIGINAL_LIST_X = new ArrayList<String>();
+    private List<String> KNN_ORIGINAL_LIST_Y = new ArrayList<String>();
+    private List<String> KNN_PCA_LIST_X = new ArrayList<String>();
+    private List<String> KNN_PCA_LIST_Y = new ArrayList<String>();
+    private List<String> SVM_ORIGINAL_LIST_X = new ArrayList<String>();
+    private List<String> SVM_ORIGINAL_LIST_Y = new ArrayList<String>();
+    private List<String> SVM_PCA_LIST_X = new ArrayList<String>();
+    private List<String> SVM_PCA_LIST_Y = new ArrayList<String>();
+    private List<String> NN_ORIGINAL_LIST_X = new ArrayList<String>();
+    private List<String> NN_ORIGINAL_LIST_Y = new ArrayList<String>();
+    private List<String> NN_PCA_LIST_X = new ArrayList<String>();
+    private List<String> NN_PCA_LIST_Y = new ArrayList<String>();
 
 
     @Override
@@ -233,6 +253,7 @@ public class MainActivity extends AppCompatActivity implements
         INTERVAL_MEDITIONS = sharedPref.getInt("Intervalo_Mediciones", 350);
 
         inferenceInterface = new TensorFlowInferenceInterface(getAssets(), MODEL_FILE);
+        inferenceInterfacePCA = new TensorFlowInferenceInterface(getAssets(), MODEL_FILE_PCA);
 
         try{
             double [][] PCA_transform = UtilsFunctions.readFromFileMatrix(4,8,"PCA_transform.txt", this);
@@ -951,8 +972,69 @@ public class MainActivity extends AppCompatActivity implements
         RealVector newRssi = new ArrayRealVector(arregloRssi, false);
         RealVector scaledInput =  UtilsFunctions.scaleData(meanVector,scaleVector,newRssi);
         RealVector pcaInput = null;
+        pcaInput = UtilsFunctions.PCATransform(PCAMatrixTransform, scaledInput);
 
-        if(mPCAActive){
+        double[] pcaInputDouble = pcaInput.toArray();
+
+        float[] arrayRssiPCAFloat = new float[pcaInputDouble.length];
+        for (int i = 0 ; i < pcaInputDouble.length; i++)
+        {
+            arrayRssiPCAFloat[i] = (float) pcaInputDouble[i];
+        }
+
+        float[] arrayRssiFloat = new float[arregloRssi.length];
+        for (int i = 0 ; i < arregloRssi.length; i++)
+        {
+            arrayRssiFloat[i] = (float) arregloRssi[i];
+        }
+
+        int valueKnnOX = KnnOriginalX.predict(scaledInput.toArray(), originalScaled.getData(), y_knn_original_x);
+        int valueKnnOY = KnnOriginalY.predict(scaledInput.toArray(), originalScaled.getData(), y_knn_original_y);
+        int valueKnnPCAX = KnnPCAX.predict(pcaInput.toArray(), PCAMatrix.getData(), y_knn_original_x);
+        int valueKnnPCAY = KnnPCAY.predict(pcaInput.toArray(), PCAMatrix.getData(), y_knn_original_y);
+        Double valueSVMOX = SVMOriginalX.predict(scaledInput.toArray(), svs_original_x, coeffs_original_x);
+        Double valueSVMOY = SVMOriginalY.predict(scaledInput.toArray(), svs_original_y, coeffs_original_y);
+        Double valueSVMPCAX = SVMPCAX.predict(pcaInput.toArray(), svs_pca_x, coeffs_pca_x);
+        Double valueSVMPCAY = SVMPCAY.predict(pcaInput.toArray(), svs_pca_y, coeffs_pca_y);
+
+        //KNN
+        KNN_ORIGINAL_LIST_X.add(mAgrupacionX.get(valueKnnOX).toString());
+        KNN_ORIGINAL_LIST_Y.add(mAgrupacionY.get(valueKnnOY).toString());
+        KNN_PCA_LIST_X.add(mAgrupacionX.get(valueKnnPCAX).toString());
+        KNN_PCA_LIST_Y.add(mAgrupacionY.get(valueKnnPCAY).toString());
+
+        // SVM
+
+        SVM_ORIGINAL_LIST_X.add(valueSVMOX.toString());
+        SVM_ORIGINAL_LIST_Y.add(valueSVMOY.toString());
+        SVM_PCA_LIST_X.add(valueSVMPCAX.toString());
+        SVM_PCA_LIST_Y.add(valueSVMPCAY.toString());
+
+        // NN
+
+        inferenceInterface.feed(INPUT_NODE, arrayRssiFloat, 1,8);
+        inferenceInterface.run(new String[] {OUTPUT_NODE});
+        int[] resuNN = new int[2];
+        inferenceInterface.fetch(OUTPUT_NODE,resuNN);
+
+        inferenceInterfacePCA.feed(INPUT_NODE_PCA, arrayRssiPCAFloat, 1,4);
+        inferenceInterfacePCA.run(new String[] {OUTPUT_NODE_PCA});
+        int[] resuNNPCA = new int[2];
+        inferenceInterfacePCA.fetch(OUTPUT_NODE_PCA,resuNNPCA);
+
+        NN_ORIGINAL_LIST_X.add(mAgrupacionX.get(resuNN[0]).toString());
+        NN_ORIGINAL_LIST_Y.add(mAgrupacionY.get(resuNN[1]).toString());
+        NN_PCA_LIST_X.add(mAgrupacionX.get(resuNNPCA[0]).toString());
+        NN_PCA_LIST_Y.add(mAgrupacionY.get(resuNNPCA[1]).toString());
+
+
+        /*inferenceInterface.feed(INPUT_NODE, arrayRssiFloat, 1,8);
+        inferenceInterface.run(new String[] {OUTPUT_NODE});
+        int[] resu = new int[2];
+        inferenceInterface.fetch(OUTPUT_NODE,resu);*/
+        //Log.e("Resultado", Arrays.toString(resu));
+
+        /*if(mPCAActive){
             pcaInput = UtilsFunctions.PCATransform(PCAMatrixTransform, scaledInput);
         }
 
@@ -999,7 +1081,7 @@ public class MainActivity extends AppCompatActivity implements
                 double valueSVMPCAY = SVMPCAY.predict(pcaInput.toArray(), svs_pca_y, coeffs_pca_y);
             }
 
-        }
+        }*/
 
         //Log.e("pca Aplicado", format.format(pcaInput));
 
@@ -1140,6 +1222,17 @@ public class MainActivity extends AppCompatActivity implements
 
         mAgrupacionY = StreamSupport.stream(unorderedY.keySet()).sorted().collect(Collectors.toList());
 
+        String external = android.os.Environment.getExternalStorageDirectory().getAbsolutePath();
+        String folderS = external + File.separator +"Indoor";
+        File file = new File(folderS, "my-file-name.txt");
+        try{
+            streamDataStatic = new FileOutputStream(file, true);
+            streamDataStatic.write((xCoord.toString() + " " + yCoord.toString() + "\n").getBytes());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+
         new Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
@@ -1151,6 +1244,19 @@ public class MainActivity extends AppCompatActivity implements
 
     @Override
     public void stopStaticPositionEstimation(){
+
+        try{
+            streamDataStatic.write("Static\n".getBytes());
+            streamDataStatic.write("KNN Original\n".getBytes());
+            streamDataStatic.write((StreamSupport.stream(KNN_ORIGINAL_LIST_X).collect(Collectors.joining(" ")) + "\n").getBytes());
+            streamDataStatic.write((StreamSupport.stream(KNN_ORIGINAL_LIST_Y).collect(Collectors.joining(" "))+ "\n").getBytes());
+            KNN_ORIGINAL_LIST_X.clear();
+            KNN_ORIGINAL_LIST_Y.clear();
+            streamDataStatic.close();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         mProgressDialogOnline.dismiss();
         stopScanning();
         mcanStartTakeMeditions = false;

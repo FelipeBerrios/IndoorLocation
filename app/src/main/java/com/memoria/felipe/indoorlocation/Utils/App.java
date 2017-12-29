@@ -1,6 +1,7 @@
 package com.memoria.felipe.indoorlocation.Utils;
 
 import android.app.Application;
+import android.database.sqlite.SQLiteDatabase;
 
 import com.facebook.stetho.Stetho;
 import com.memoria.felipe.indoorlocation.Utils.Model.DaoMaster;
@@ -23,7 +24,8 @@ public class App extends Application {
         super.onCreate();
         Stetho.initializeWithDefaults(this);
 
-        DaoMaster.DevOpenHelper helper = new DaoMaster.DevOpenHelper(this, "indoor-db");
+        DaoMaster.DevOpenHelper helper = new DaoMaster.DevOpenHelper(this, "indoor-db.db");
+        //MyDatabase helper = new MyDatabase(this);
         Database db = helper.getWritableDb();
         daoSession = new DaoMaster(db).newSession();
     }

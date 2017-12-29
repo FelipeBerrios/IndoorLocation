@@ -82,6 +82,12 @@
                     android:backgroundTint="@color/colorAccent"
                     android:textColor="#fff"
                     android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp" />
+
+                <CheckBox
+                    android:id="@+id/checkbox_dinamic_mode"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content" />
 
 

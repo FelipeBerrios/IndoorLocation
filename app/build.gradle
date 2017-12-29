@@ -55,6 +55,7 @@ dependencies {
     compile 'net.sourceforge.streamsupport:streamsupport-flow:1.5.5'
     compile 'net.sourceforge.streamsupport:streamsupport-literal:1.5.5'
     compile 'org.tensorflow:tensorflow-android:+'
+    compile 'com.readystatesoftware.sqliteasset:sqliteassethelper:+'
     compile group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
     compile('com.opencsv:opencsv:3.10'){
         exclude group: 'commons-logging', module: 'commons-logging'

@@ -91,6 +91,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -195,6 +196,9 @@ public class MainActivity extends AppCompatActivity implements
     private List<String> NN_ORIGINAL_LIST_Y = new ArrayList<String>();
     private List<String> NN_PCA_LIST_X = new ArrayList<String>();
     private List<String> NN_PCA_LIST_Y = new ArrayList<String>();
+    private List<Long> mTimers = new ArrayList<Long>(Collections.nCopies(6, 0L));
+    private int counterTimers = 0;
+    private Boolean isDinamic = false;
 
 
     @Override
@@ -666,7 +670,10 @@ public class MainActivity extends AppCompatActivity implements
                             }
 
                             Log.e("Arreglo actual", Arrays.toString(finalArray));
+
                             calculatePosition(finalArray);
+
+
                         }
 
 
@@ -988,14 +995,22 @@ public class MainActivity extends AppCompatActivity implements
             arrayRssiFloat[i] = (float) arregloRssi[i];
         }
 
+        long time = System.currentTimeMillis();
         int valueKnnOX = KnnOriginalX.predict(scaledInput.toArray(), originalScaled.getData(), y_knn_original_x);
         int valueKnnOY = KnnOriginalY.predict(scaledInput.toArray(), originalScaled.getData(), y_knn_original_y);
+        mTimers.set(0, mTimers.get(0) +  System.currentTimeMillis()-time);
+        time = System.currentTimeMillis();
         int valueKnnPCAX = KnnPCAX.predict(pcaInput.toArray(), PCAMatrix.getData(), y_knn_original_x);
         int valueKnnPCAY = KnnPCAY.predict(pcaInput.toArray(), PCAMatrix.getData(), y_knn_original_y);
+        mTimers.set(1, mTimers.get(1) +  System.currentTimeMillis()-time);
+        time = System.currentTimeMillis();
         Double valueSVMOX = SVMOriginalX.predict(scaledInput.toArray(), svs_original_x, coeffs_original_x);
         Double valueSVMOY = SVMOriginalY.predict(scaledInput.toArray(), svs_original_y, coeffs_original_y);
+        mTimers.set(2, mTimers.get(2) +  System.currentTimeMillis()-time);
+        time = System.currentTimeMillis();
         Double valueSVMPCAX = SVMPCAX.predict(pcaInput.toArray(), svs_pca_x, coeffs_pca_x);
         Double valueSVMPCAY = SVMPCAY.predict(pcaInput.toArray(), svs_pca_y, coeffs_pca_y);
+        mTimers.set(3, mTimers.get(3) +  System.currentTimeMillis()-time);
 
         //KNN
         KNN_ORIGINAL_LIST_X.add(mAgrupacionX.get(valueKnnOX).toString());
@@ -1012,21 +1027,28 @@ public class MainActivity extends AppCompatActivity implements
 
         // NN
 
+        time = System.currentTimeMillis();
         inferenceInterface.feed(INPUT_NODE, arrayRssiFloat, 1,8);
         inferenceInterface.run(new String[] {OUTPUT_NODE});
         int[] resuNN = new int[2];
         inferenceInterface.fetch(OUTPUT_NODE,resuNN);
+
+        mTimers.set(4, mTimers.get(4) +  System.currentTimeMillis()-time);
+        time = System.currentTimeMillis();
 
         inferenceInterfacePCA.feed(INPUT_NODE_PCA, arrayRssiPCAFloat, 1,4);
         inferenceInterfacePCA.run(new String[] {OUTPUT_NODE_PCA});
         int[] resuNNPCA = new int[2];
         inferenceInterfacePCA.fetch(OUTPUT_NODE_PCA,resuNNPCA);
 
+        mTimers.set(5, mTimers.get(5) +  System.currentTimeMillis()-time);
+
         NN_ORIGINAL_LIST_X.add(mAgrupacionX.get(resuNN[0]).toString());
         NN_ORIGINAL_LIST_Y.add(mAgrupacionY.get(resuNN[1]).toString());
         NN_PCA_LIST_X.add(mAgrupacionX.get(resuNNPCA[0]).toString());
         NN_PCA_LIST_Y.add(mAgrupacionY.get(resuNNPCA[1]).toString());
 
+        counterTimers +=1;
 
         /*inferenceInterface.feed(INPUT_NODE, arrayRssiFloat, 1,8);
         inferenceInterface.run(new String[] {OUTPUT_NODE});
@@ -1200,14 +1222,14 @@ public class MainActivity extends AppCompatActivity implements
     }
 
     @Override
-    public void getStaticPositionEstimation(int mode, boolean pca, Double xCoord, Double yCoord) {
-
+    public void getStaticPositionEstimation(int mode, boolean pca, Double xCoord, Double yCoord, Boolean dinamic) {
         mProgressDialogOnline.setTitle("Iniciando Online");
         mProgressDialogOnline.setMessage("Conectando...");
         mProgressDialogOnline.setProgressStyle(ProgressDialog.STYLE_SPINNER);
         mProgressDialogOnline.show();
         mXPositionOnlineStatic = xCoord;
         mYPositionOnlineStatic = yCoord;
+        isDinamic = dinamic;
         mModeAlgorithm = mode;
         mPCAActive = pca;
         startScanningOnline(1);
@@ -1224,10 +1246,24 @@ public class MainActivity extends AppCompatActivity implements
 
         String external = android.os.Environment.getExternalStorageDirectory().getAbsolutePath();
         String folderS = external + File.separator +"Indoor";
-        File file = new File(folderS, "my-file-name.txt");
+        File file;
+        if(isDinamic){
+            file = new File(folderS, "dinamic.txt");
+        }
+        else{
+            file = new File(folderS, "static.txt");
+        }
+
         try{
             streamDataStatic = new FileOutputStream(file, true);
-            streamDataStatic.write((xCoord.toString() + " " + yCoord.toString() + "\n").getBytes());
+            if(isDinamic){
+                streamDataStatic.write("Online\n\n".getBytes());
+            }
+            else{
+                streamDataStatic.write("Static\n\n".getBytes());
+            }
+
+            streamDataStatic.write((xCoord.toString() + " " + yCoord.toString() + "\n\n").getBytes());
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -1245,20 +1281,81 @@ public class MainActivity extends AppCompatActivity implements
     @Override
     public void stopStaticPositionEstimation(){
 
-        try{
-            streamDataStatic.write("Static\n".getBytes());
-            streamDataStatic.write("KNN Original\n".getBytes());
-            streamDataStatic.write((StreamSupport.stream(KNN_ORIGINAL_LIST_X).collect(Collectors.joining(" ")) + "\n").getBytes());
-            streamDataStatic.write((StreamSupport.stream(KNN_ORIGINAL_LIST_Y).collect(Collectors.joining(" "))+ "\n").getBytes());
-            KNN_ORIGINAL_LIST_X.clear();
-            KNN_ORIGINAL_LIST_Y.clear();
-            streamDataStatic.close();
+        Handler handler = new Handler();
+        Runnable r = new Runnable() {
+            @Override
+            public void run() {
+                try{
+                    streamDataStatic.write("KNN Original\n\n".getBytes());
+                    streamDataStatic.write((StreamSupport.stream(KNN_ORIGINAL_LIST_X).collect(Collectors.joining(" ")) + "\n\n").getBytes());
+                    streamDataStatic.write((StreamSupport.stream(KNN_ORIGINAL_LIST_Y).collect(Collectors.joining(" "))+ "\n\n").getBytes());
+                    KNN_ORIGINAL_LIST_X.clear();
+                    KNN_ORIGINAL_LIST_Y.clear();
+                    Double knnResult = (double) mTimers.get(0)/counterTimers;
+                    streamDataStatic.write((knnResult.toString() + "\n\n").getBytes());
 
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        mProgressDialogOnline.dismiss();
-        stopScanning();
-        mcanStartTakeMeditions = false;
+                    streamDataStatic.write("KNN PCA\n\n".getBytes());
+                    streamDataStatic.write((StreamSupport.stream(KNN_PCA_LIST_X).collect(Collectors.joining(" ")) + "\n\n").getBytes());
+                    streamDataStatic.write((StreamSupport.stream(KNN_PCA_LIST_Y).collect(Collectors.joining(" "))+ "\n\n").getBytes());
+                    KNN_PCA_LIST_X.clear();
+                    KNN_PCA_LIST_Y.clear();
+                    Double knnPCAResult = (double) mTimers.get(1)/counterTimers;
+                    streamDataStatic.write((knnPCAResult.toString() + "\n\n").getBytes());
+
+                    streamDataStatic.write("SVM ORIGINAL\n\n".getBytes());
+                    streamDataStatic.write((StreamSupport.stream(SVM_ORIGINAL_LIST_X).collect(Collectors.joining(" ")) + "\n\n").getBytes());
+                    streamDataStatic.write((StreamSupport.stream(SVM_ORIGINAL_LIST_Y).collect(Collectors.joining(" "))+ "\n\n").getBytes());
+                    SVM_ORIGINAL_LIST_X.clear();
+                    SVM_ORIGINAL_LIST_Y.clear();
+                    Double svmResult = (double) mTimers.get(2)/counterTimers;
+                    streamDataStatic.write((svmResult.toString() + "\n\n").getBytes());
+
+                    streamDataStatic.write("SVM PCA\n\n".getBytes());
+                    streamDataStatic.write((StreamSupport.stream(SVM_PCA_LIST_X).collect(Collectors.joining(" ")) + "\n\n").getBytes());
+                    streamDataStatic.write((StreamSupport.stream(SVM_PCA_LIST_Y).collect(Collectors.joining(" "))+ "\n\n").getBytes());
+                    SVM_PCA_LIST_X.clear();
+                    SVM_PCA_LIST_Y.clear();
+                    Double svmPCAResult = (double) mTimers.get(3)/counterTimers;
+                    streamDataStatic.write((svmPCAResult.toString() + "\n\n").getBytes());
+
+                    streamDataStatic.write("NN ORIGINAL\n\n".getBytes());
+                    streamDataStatic.write((StreamSupport.stream(NN_ORIGINAL_LIST_X).collect(Collectors.joining(" ")) + "\n\n").getBytes());
+                    streamDataStatic.write((StreamSupport.stream(NN_ORIGINAL_LIST_Y).collect(Collectors.joining(" "))+ "\n\n").getBytes());
+                    NN_ORIGINAL_LIST_X.clear();
+                    NN_ORIGINAL_LIST_Y.clear();
+                    Double nnResult = (double) mTimers.get(4)/counterTimers;
+                    streamDataStatic.write((nnResult.toString() + "\n\n").getBytes());
+
+                    streamDataStatic.write("NN PCA\n\n".getBytes());
+                    streamDataStatic.write((StreamSupport.stream(NN_PCA_LIST_X).collect(Collectors.joining(" ")) + "\n\n").getBytes());
+                    streamDataStatic.write((StreamSupport.stream(NN_PCA_LIST_Y).collect(Collectors.joining(" "))+ "\n\n").getBytes());
+                    NN_PCA_LIST_X.clear();
+                    NN_PCA_LIST_Y.clear();
+                    Double nnPCAResult = (double) mTimers.get(5)/counterTimers;
+                    streamDataStatic.write((nnPCAResult.toString() + "\n\n").getBytes());
+
+                    mTimers = new ArrayList<Long>(Collections.nCopies(6, 0L));
+                    counterTimers = 0;
+                    streamDataStatic.close();
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                handler.post(new Runnable()  //If you want to update the UI, queue the code on the UI thread
+                {
+                    public void run() {
+                        mProgressDialogOnline.dismiss();
+                        stopScanning();
+                    }
+                });
+
+                mcanStartTakeMeditions = false;
+            }
+        };
+
+        Thread t = new Thread(r);
+        t.start();
+
+
     }
 }

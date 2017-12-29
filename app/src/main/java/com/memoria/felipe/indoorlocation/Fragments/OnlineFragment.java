@@ -13,6 +13,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -41,6 +42,7 @@ public class OnlineFragment extends Fragment {
     private EditText mEditTextPatron;
     private Button mButtonMakeScan;
     private boolean isButtonScanning = false;
+    private CheckBox mCheckBoxDinamic;
 
     private Double mXCoord;
     private Double mYCoord;
@@ -99,6 +101,7 @@ public class OnlineFragment extends Fragment {
         mEditTextPosX = (EditText)getView().findViewById(R.id.edit_text_patron_pos_x);
         mEditTextPosY = (EditText)getView().findViewById(R.id.edit_text_patron_pos_y);
         mEditTextPatron = (EditText)getView().findViewById(R.id.edit_text_patron);
+        mCheckBoxDinamic = (CheckBox)getView().findViewById(R.id.checkbox_dinamic_mode);
 
         mSpinnerAlgorithms = (Spinner) getView().findViewById(R.id.spinner_algorithms);
         ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(getActivity(),
@@ -168,6 +171,7 @@ public class OnlineFragment extends Fragment {
                     mListener.stopStaticPositionEstimation();
                     return;
                 }
+                Boolean isDinamic = mCheckBoxDinamic.isChecked();
                 String xString = mEditTextPosX.getText().toString();
                 String yString = mEditTextPosY.getText().toString();
                 String patronString  = mEditTextPatron.getText().toString();
@@ -203,7 +207,7 @@ public class OnlineFragment extends Fragment {
                     isButtonScanning = true;
                     mButtonMakeScan.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.red_material)));
                     mButtonMakeScan.setText("Detener");
-                    mListener.getStaticPositionEstimation(positionMode, pca, mXCoord,mYCoord);
+                    mListener.getStaticPositionEstimation(positionMode, pca, mXCoord,mYCoord, isDinamic);
                 }
                 else{
                     Toast.makeText(getActivity().getApplicationContext(),
@@ -288,7 +292,7 @@ public class OnlineFragment extends Fragment {
     public interface OnFragmentOnlineListener {
         // TODO: Update argument type and name
         // mode: 0 knn, 1: svm, 2 nn
-        void getStaticPositionEstimation(int mode, boolean pca, Double xCoord, Double yCoord);
+        void getStaticPositionEstimation(int mode, boolean pca, Double xCoord, Double yCoord, Boolean dinamic);
         void stopStaticPositionEstimation();
     }
 }

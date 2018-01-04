@@ -203,7 +203,7 @@ public class MainActivity extends AppCompatActivity implements
     private Boolean isDinamic = false;
     private Circle circle;
     private String mActualBeaconNameScaned;
-    private List<Integer> actualRssiBeaconByName = new ArrayList<Integer>();
+    private List<String> actualRssiBeaconByName = new ArrayList<String>();
 
 
     @Override
@@ -731,7 +731,7 @@ public class MainActivity extends AppCompatActivity implements
 
                             if(beacons!=null){
                                 if(beacons.getUniqueId().equals(mActualBeaconNameScaned)){
-                                    actualRssiBeaconByName.add(actualEddystone.getRssi());
+                                    actualRssiBeaconByName.add(String.valueOf(actualEddystone.getRssi()));
                                 }
                             }
                         }
@@ -1442,7 +1442,7 @@ public class MainActivity extends AppCompatActivity implements
 
         try{
             streamDataStatic = new FileOutputStream(file, true);
-            streamDataStatic.write("name\n\n".getBytes());
+            streamDataStatic.write((name + "\n\n").getBytes());
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -1454,7 +1454,6 @@ public class MainActivity extends AppCompatActivity implements
             public void run() {
                 mProgressDialogOnline.dismiss();
                 mcanStartTakeMeditions = true;
-                circle.setVisible(true);
             }
         }, 5000);
     }
@@ -1462,5 +1461,32 @@ public class MainActivity extends AppCompatActivity implements
     @Override
     public void stopScanBeaconByName(){
 
+        Handler handler = new Handler();
+        Runnable r = new Runnable() {
+            @Override
+            public void run() {
+                try{
+
+                    streamDataStatic.write((StreamSupport.stream(actualRssiBeaconByName).collect(Collectors.joining(" ")) + "\n\n").getBytes());
+                    actualRssiBeaconByName.clear();
+                    streamDataStatic.close();
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                handler.post(new Runnable()  //If you want to update the UI, queue the code on the UI thread
+                {
+                    public void run() {
+                        mProgressDialogOnline.dismiss();
+                        stopScanning();
+                    }
+                });
+
+                mcanStartTakeMeditions = false;
+            }
+        };
+
+        Thread t = new Thread(r);
+        t.start();
     }
 }

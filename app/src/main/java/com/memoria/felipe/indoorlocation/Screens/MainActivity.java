@@ -41,6 +41,8 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.Circle;
+import com.google.android.gms.maps.model.CircleOptions;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
@@ -199,6 +201,9 @@ public class MainActivity extends AppCompatActivity implements
     private List<Long> mTimers = new ArrayList<Long>(Collections.nCopies(6, 0L));
     private int counterTimers = 0;
     private Boolean isDinamic = false;
+    private Circle circle;
+    private String mActualBeaconNameScaned;
+    private List<Integer> actualRssiBeaconByName = new ArrayList<Integer>();
 
 
     @Override
@@ -671,7 +676,13 @@ public class MainActivity extends AppCompatActivity implements
 
                             Log.e("Arreglo actual", Arrays.toString(finalArray));
 
-                            calculatePosition(finalArray);
+                            List<Double> actualCoord =  calculatePosition(finalArray);
+                            LatLng actualLatLng = new LatLng(actualCoord.get(1), actualCoord.get(0));
+
+                            circle.setCenter(actualLatLng);
+
+                            mMap.moveCamera(CameraUpdateFactory.newLatLng(actualLatLng));
+
 
 
                         }
@@ -682,6 +693,52 @@ public class MainActivity extends AppCompatActivity implements
                         ex.printStackTrace();
                     }
 
+                }
+
+            }
+        };
+    }
+
+
+    private EddystoneListener createEddystoneListenerName() {
+        return new SimpleEddystoneListener() {
+            @Override
+            public void onEddystonesUpdated(List<IEddystoneDevice> eddystones, IEddystoneNamespace namespace) {
+
+                Log.i(TAG, "onEddystonesUpdated: " + eddystones.size());
+                for(int i= 0; i<eddystones.size(); i++){
+                    Log.i(TAG, "onEddystoneUpdate: " + eddystones.get(i).toString());
+                }
+
+                try{
+                    if(mcanStartTakeMeditions){
+                        List<Beacons> beaconses = beaconsDao.loadAll();
+                        List<String> allUniqueId = StreamSupport.stream(beaconses)
+                                .map(x->x.getUniqueId()).collect(Collectors.toList());
+                        HashMap<Integer, Double> mapBeacons = new LinkedHashMap<Integer, Double>();
+                        List<String> idIn = new ArrayList<String>();
+                        for(int i= 0; i<eddystones.size(); i++){
+                            String macBeacon;
+                            IEddystoneDevice actualEddystone = eddystones.get(i);
+                            if(actualEddystone.getUniqueId()!=null){
+                                macBeacon = actualEddystone.getAddress();
+                            }
+                            else{
+                                macBeacon = map.get(actualEddystone.getInstanceId()).getMAC();
+                            }
+                            Beacons beacons = beaconsDao.queryBuilder()
+                                    .where(BeaconsDao.Properties.MAC.eq(macBeacon)).unique();
+
+                            if(beacons!=null){
+                                if(beacons.getUniqueId().equals(mActualBeaconNameScaned)){
+                                    actualRssiBeaconByName.add(actualEddystone.getRssi());
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex){
+                    ex.printStackTrace();
                 }
 
             }
@@ -844,6 +901,15 @@ public class MainActivity extends AppCompatActivity implements
         loadBeaconsMarkers(mMap);
         loadFingerprintsMarkers(mMap);
         mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
+
+        circle = mMap.addCircle(new CircleOptions()
+                .center(sydney)
+                .radius(100000d)
+                .strokeColor(Color.WHITE)
+                .fillColor(Color.parseColor("#4285F4"))
+                .zIndex(100f));
+
+
     }
 
     public File loadFilefromAssets(String fileName){
@@ -965,6 +1031,24 @@ public class MainActivity extends AppCompatActivity implements
         });
     }
 
+    private void startScanningName(){
+        proximityManager.connect(new OnServiceReadyListener() {
+            @Override
+            public void onServiceReady() {
+                //Check if proximity manager is already scanning
+                if (proximityManager.isScanning()) {
+                    Toast.makeText(MainActivity.this, "Ya esta escaneando", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                proximityManager.setEddystoneListener(createEddystoneListenerName());
+                proximityManager.startScanning();
+                Toast.makeText(MainActivity.this, "Escaneando...", Toast.LENGTH_SHORT).show();
+
+            }
+        });
+    }
+
     private void stopScanning() {
         //Stop scanning if scanning is in progress
         if (proximityManager.isScanning()) {
@@ -1050,60 +1134,41 @@ public class MainActivity extends AppCompatActivity implements
 
         counterTimers +=1;
 
-        /*inferenceInterface.feed(INPUT_NODE, arrayRssiFloat, 1,8);
-        inferenceInterface.run(new String[] {OUTPUT_NODE});
-        int[] resu = new int[2];
-        inferenceInterface.fetch(OUTPUT_NODE,resu);*/
-        //Log.e("Resultado", Arrays.toString(resu));
-
-        /*if(mPCAActive){
-            pcaInput = UtilsFunctions.PCATransform(PCAMatrixTransform, scaledInput);
-        }
-
         if(mModeAlgorithm==0){
 
-            if(!mPCAActive){
-                int valueKnnOX = KnnOriginalX.predict(scaledInput.toArray(), originalScaled.getData(), y_knn_original_x);
-                int valueKnnOY = KnnOriginalY.predict(scaledInput.toArray(), originalScaled.getData(), y_knn_original_y);
-                Log.e("Resultado KNN", mAgrupacionX.get(valueKnnOX).toString() + " " + mAgrupacionY.get(valueKnnOY).toString());
+            if(mPCAActive){
+                coordenadas.add(mAgrupacionX.get(valueKnnPCAX));
+                coordenadas.add(mAgrupacionY.get(valueKnnPCAY));
             }
             else{
-                int valueKnnPCAX = KnnPCAX.predict(pcaInput.toArray(), PCAMatrix.getData(), y_knn_original_x);
-                int valueKnnPCAY = KnnPCAY.predict(pcaInput.toArray(), PCAMatrix.getData(), y_knn_original_y);
+                coordenadas.add(mAgrupacionX.get(valueKnnOX));
+                coordenadas.add(mAgrupacionY.get(valueKnnOY));
             }
 
         }
         else if(mModeAlgorithm ==1){
 
-            if(!mPCAActive){
-                double valueSVMOX = SVMOriginalX.predict(scaledInput.toArray(), svs_original_x, coeffs_original_x);
-                double valueSVMOY = SVMOriginalY.predict(scaledInput.toArray(), svs_original_y, coeffs_original_y);
+            if(mPCAActive){
+                coordenadas.add(valueSVMPCAX);
+                coordenadas.add(valueSVMPCAY);
             }
             else{
-                double valueSVMPCAX = SVMPCAX.predict(pcaInput.toArray(), svs_pca_x, coeffs_pca_x);
-                double valueSVMPCAY = SVMPCAY.predict(pcaInput.toArray(), svs_pca_y, coeffs_pca_y);
+                coordenadas.add(valueSVMOX);
+                coordenadas.add(valueSVMOY);
             }
+
         }
         else{
-            float[] arrayRssiFloat = new float[arregloRssi.length];
-            for (int i = 0 ; i < arregloRssi.length; i++)
-            {
-                arrayRssiFloat[i] = (float) arregloRssi[i];
-            }
-
-            if(!mPCAActive){
-                inferenceInterface.feed(INPUT_NODE, arrayRssiFloat, 1,8);
-                inferenceInterface.run(new String[] {OUTPUT_NODE});
-                int[] resu = new int[2];
-                inferenceInterface.fetch(OUTPUT_NODE,resu);
-                //Log.e("Resultado", Arrays.toString(resu));
+            if(mPCAActive){
+                coordenadas.add(mAgrupacionX.get(resuNNPCA[0]));
+                coordenadas.add(mAgrupacionY.get(resuNNPCA[1]));
             }
             else{
-                double valueSVMPCAX = SVMPCAX.predict(pcaInput.toArray(), svs_pca_x, coeffs_pca_x);
-                double valueSVMPCAY = SVMPCAY.predict(pcaInput.toArray(), svs_pca_y, coeffs_pca_y);
-            }
 
-        }*/
+                coordenadas.add(mAgrupacionX.get(resuNN[0]));
+                coordenadas.add(mAgrupacionY.get(resuNN[1]));
+            }
+        }
 
         //Log.e("pca Aplicado", format.format(pcaInput));
 
@@ -1274,6 +1339,7 @@ public class MainActivity extends AppCompatActivity implements
             public void run() {
                 mProgressDialogOnline.dismiss();
                 mcanStartTakeMeditions = true;
+                circle.setVisible(true);
             }
         }, 5000);
     }
@@ -1346,6 +1412,7 @@ public class MainActivity extends AppCompatActivity implements
                     public void run() {
                         mProgressDialogOnline.dismiss();
                         stopScanning();
+                        circle.setVisible(false);
                     }
                 });
 
@@ -1355,7 +1422,45 @@ public class MainActivity extends AppCompatActivity implements
 
         Thread t = new Thread(r);
         t.start();
+    }
 
+    @Override
+    public void scanBeaconByName(String name){
+        mActualBeaconNameScaned = name;
+        mProgressDialogOnline.setTitle("Iniciando Online");
+        mProgressDialogOnline.setMessage("Conectando...");
+        mProgressDialogOnline.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+        mProgressDialogOnline.show();
+
+        startScanningName();
+
+        String external = android.os.Environment.getExternalStorageDirectory().getAbsolutePath();
+        String folderS = external + File.separator +"Indoor";
+        File file;
+
+        file = new File(folderS, "BeaconName.txt");
+
+        try{
+            streamDataStatic = new FileOutputStream(file, true);
+            streamDataStatic.write("name\n\n".getBytes());
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                mProgressDialogOnline.dismiss();
+                mcanStartTakeMeditions = true;
+                circle.setVisible(true);
+            }
+        }, 5000);
+    }
+
+    @Override
+    public void stopScanBeaconByName(){
 
     }
 }

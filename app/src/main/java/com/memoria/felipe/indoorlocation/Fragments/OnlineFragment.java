@@ -43,6 +43,9 @@ public class OnlineFragment extends Fragment {
     private Button mButtonMakeScan;
     private boolean isButtonScanning = false;
     private CheckBox mCheckBoxDinamic;
+    private Button mButtonScanBeacon;
+    private EditText mEditTextBeaconName;
+    private boolean isButtonBeaconScanning = false;
 
     private Double mXCoord;
     private Double mYCoord;
@@ -102,6 +105,8 @@ public class OnlineFragment extends Fragment {
         mEditTextPosY = (EditText)getView().findViewById(R.id.edit_text_patron_pos_y);
         mEditTextPatron = (EditText)getView().findViewById(R.id.edit_text_patron);
         mCheckBoxDinamic = (CheckBox)getView().findViewById(R.id.checkbox_dinamic_mode);
+        mEditTextBeaconName = (EditText)getView().findViewById(R.id.edit_text_name_beacon_scan);
+        mButtonScanBeacon = (Button)getView().findViewById(R.id.make_scan_button_beacon);
 
         mSpinnerAlgorithms = (Spinner) getView().findViewById(R.id.spinner_algorithms);
         ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(getActivity(),
@@ -216,6 +221,26 @@ public class OnlineFragment extends Fragment {
 
             }
         });
+
+        mButtonScanBeacon.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(isButtonBeaconScanning){
+                    mButtonScanBeacon.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.colorAccent)));
+                    mButtonScanBeacon.setText("Scan Beacon");
+                    isButtonBeaconScanning = false;
+                    mListener.stopScanBeaconByName();
+                    return;
+                }
+
+                String nameBeacon = mEditTextBeaconName.getText().toString();
+                isButtonBeaconScanning = true;
+                mButtonScanBeacon.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.red_material)));
+                mButtonScanBeacon.setText("Detener");
+                mListener.scanBeaconByName(nameBeacon);
+
+            }
+        });
     }
 
     public void UpdateCoordTextView(){
@@ -294,5 +319,7 @@ public class OnlineFragment extends Fragment {
         // mode: 0 knn, 1: svm, 2 nn
         void getStaticPositionEstimation(int mode, boolean pca, Double xCoord, Double yCoord, Boolean dinamic);
         void stopStaticPositionEstimation();
+        void scanBeaconByName(String name);
+        void stopScanBeaconByName();
     }
 }
